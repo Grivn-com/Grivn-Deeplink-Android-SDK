@@ -1,12 +1,12 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
     id("maven-publish")
 }
 
 android {
     namespace = "com.osdl.dynamiclinks"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         minSdk = 24
@@ -39,13 +39,14 @@ android {
 }
 
 dependencies {
-
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.code.gson:gson:2.10.1")
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }
 
 afterEvaluate {
@@ -60,7 +61,7 @@ afterEvaluate {
                 pom {
                     name.set("OSS DynamicLinks SDK")
                     description.set("OSS SDK for handling Dynamic Links")
-                    url.set("https://github.com/jfd02/DynamicLinks-Android")
+                    url.set("https://github.com/piwenzi/DynamicLinks-Android")
                 }
             }
         }
@@ -68,7 +69,7 @@ afterEvaluate {
         repositories {
             maven {
                 name = "GitHubPackages"
-                url = uri("https://maven.pkg.github.com/jfd02/DynamicLinks-Android")
+                url = uri("https://maven.pkg.github.com/piwenzi/DynamicLinks-Android")
                 credentials {
                     username = project.findProperty("gpr.user") as String?
                         ?: System.getenv("GITHUB_USERNAME")
