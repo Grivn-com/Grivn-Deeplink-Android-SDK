@@ -129,6 +129,52 @@ internal class ApiService(
     }
     
     /**
+     * 获取延迟深链
+     */
+    fun getDeferredDeeplink(
+        fingerprintId: String,
+        userAgent: String,
+        screenResolution: String? = null,
+        timezone: String? = null,
+        language: String? = null
+    ): ApiResponse<DeferredDeeplinkResponse> {
+        val url = "$baseUrl/api/v1/analytics/deferred"
+        
+        val body = DeferredDeeplinkRequest(
+            fingerprintId = fingerprintId,
+            userAgent = userAgent,
+            screenResolution = screenResolution,
+            timezone = timezone,
+            language = language
+        )
+        
+        return post(url, body)
+    }
+    
+    /**
+     * 确认安装
+     */
+    fun confirmInstall(
+        fingerprintId: String,
+        userAgent: String,
+        deviceModel: String? = null,
+        osVersion: String? = null,
+        appVersion: String? = null
+    ): ApiResponse<ConfirmInstallResponse> {
+        val url = "$baseUrl/api/v1/analytics/confirm-install"
+        
+        val body = ConfirmInstallRequest(
+            fingerprintId = fingerprintId,
+            userAgent = userAgent,
+            deviceModel = deviceModel,
+            osVersion = osVersion,
+            appVersion = appVersion
+        )
+        
+        return post(url, body)
+    }
+    
+    /**
      * POST 请求
      */
     private inline fun <reified T> post(url: String, body: Any): ApiResponse<T> {
@@ -241,6 +287,46 @@ internal data class DeeplinkCreateRequest(
  */
 internal data class ExchangeShortLinkRequest(
     @SerializedName("requestedLink") val requestedLink: String
+)
+
+/**
+ * 获取延迟深链请求
+ */
+internal data class DeferredDeeplinkRequest(
+    @SerializedName("fingerprint_id") val fingerprintId: String,
+    @SerializedName("ip_address") val ipAddress: String? = null,
+    @SerializedName("user_agent") val userAgent: String,
+    @SerializedName("screen_resolution") val screenResolution: String? = null,
+    @SerializedName("timezone") val timezone: String? = null,
+    @SerializedName("language") val language: String? = null
+)
+
+/**
+ * 延迟深链响应
+ */
+internal data class DeferredDeeplinkResponse(
+    @SerializedName("found") val found: Boolean,
+    @SerializedName("link_data") val linkData: Map<String, Any>?
+)
+
+/**
+ * 确认安装请求
+ */
+internal data class ConfirmInstallRequest(
+    @SerializedName("fingerprint_id") val fingerprintId: String,
+    @SerializedName("ip_address") val ipAddress: String? = null,
+    @SerializedName("user_agent") val userAgent: String,
+    @SerializedName("device_model") val deviceModel: String? = null,
+    @SerializedName("os_version") val osVersion: String? = null,
+    @SerializedName("app_version") val appVersion: String? = null
+)
+
+/**
+ * 确认安装响应
+ */
+internal data class ConfirmInstallResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("message") val message: String?
 )
 
 /**

@@ -1,10 +1,18 @@
 package com.osdl.dynamiclinks
 
+import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import com.osdl.dynamiclinks.network.ApiService
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -54,15 +62,24 @@ public object DynamicLinksSDK {
     private var projectId: String? = null
     
     private lateinit var apiService: ApiService
+    
+    // 用于自动检查的协程 Scope
+    private val sdkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    
+    // Deferred Deeplink 回调
+    private var deferredDeeplinkCallback: ((DeferredDeeplinkData) -> Unit)? = null
+    
+    // Application Context (用于自动检查)
+    private var appContext: Context? = null
 
     // ============ 初始化 ============
 
     /**
-     * 初始化 SDK
+     * 初始化 SDK（简单版本，不自动检查 Deferred Deeplink）
      * 
      * @param baseUrl 后端 API Base URL (例如 "https://api.grivn.com")
      * @param secretKey Secret Key（通过 X-API-Key header 发送）
-     * @param projectId 项目 ID（可选，用于创建链接时指定所属项目。如果只处理链接可以不传）
+     * @param projectId 项目 ID（可选，用于创建链接时指定所属项目）
      */
     @JvmStatic
     @JvmOverloads
@@ -71,12 +88,64 @@ public object DynamicLinksSDK {
         secretKey: String,
         projectId: String? = null
     ) {
+        initInternal(baseUrl, secretKey, projectId, null, null)
+    }
+    
+    /**
+     * 初始化 SDK 并自动检查 Deferred Deeplink
+     * 
+     * SDK 会在首次启动时自动检查是否有延迟深链，并通过回调返回结果。
+     * 开发者无需额外调用 checkDeferredDeeplink()。
+     * 
+     * 使用示例：
+     * ```kotlin
+     * // 在 Application.onCreate 中调用
+     * DynamicLinksSDK.init(
+     *     context = this,
+     *     baseUrl = "https://api.grivn.com",
+     *     secretKey = "your_secret_key",
+     *     projectId = "your_project_id"
+     * ) { result ->
+     *     if (result.found) {
+     *         // 处理延迟深链
+     *         Log.d("DeferredDeeplink", "Found: ${result.originalUrl}")
+     *     }
+     * }
+     * ```
+     * 
+     * @param context Application Context（用于自动检查 Deferred Deeplink）
+     * @param baseUrl 后端 API Base URL
+     * @param secretKey Secret Key
+     * @param projectId 项目 ID（可选）
+     * @param onDeferredDeeplink 延迟深链回调（可选，不传则静默上报安装）
+     */
+    @JvmStatic
+    @JvmOverloads
+    public fun init(
+        context: Context,
+        baseUrl: String,
+        secretKey: String,
+        projectId: String? = null,
+        onDeferredDeeplink: ((DeferredDeeplinkData) -> Unit)? = null
+    ) {
+        initInternal(baseUrl, secretKey, projectId, context.applicationContext, onDeferredDeeplink)
+    }
+    
+    private fun initInternal(
+        baseUrl: String,
+        secretKey: String,
+        projectId: String?,
+        context: Context?,
+        callback: ((DeferredDeeplinkData) -> Unit)?
+    ) {
         require(baseUrl.isNotBlank()) { "baseUrl cannot be blank" }
         require(secretKey.isNotBlank()) { "secretKey cannot be blank" }
         
         this.baseUrl = baseUrl.trimEnd('/')
         this.secretKey = secretKey
         this.projectId = projectId
+        this.appContext = context
+        this.deferredDeeplinkCallback = callback
         
         apiService = ApiService(
             baseUrl = this.baseUrl,
@@ -86,6 +155,18 @@ public object DynamicLinksSDK {
         )
         
         isInitialized.set(true)
+        
+        // 自动检查 Deferred Deeplink
+        context?.let { ctx ->
+            sdkScope.launch {
+                try {
+                    val result = checkDeferredDeeplink(ctx, forceCheck = false)
+                    callback?.invoke(result)
+                } catch (e: Exception) {
+                    // 静默失败，不影响 App 启动
+                }
+            }
+        }
     }
     
     /**
@@ -240,6 +321,135 @@ public object DynamicLinksSDK {
         val host = url.host ?: return false
         val pathMatches = Regex("/[^/]+").containsMatchIn(url.path ?: "")
         return allowedHosts.contains(host) && pathMatches
+    }
+
+    // ============ Deferred Deeplink ============
+
+    /**
+     * 检查并获取延迟深链（首次安装后的 Deeplink）
+     * 
+     * 当用户通过 Deeplink 跳转到应用商店下载 App 后，首次打开时调用此方法获取原始链接数据。
+     * 此方法只会在首次启动时返回数据，后续调用将返回 found=false。
+     * 
+     * 使用示例：
+     * ```kotlin
+     * // 在 Activity.onCreate 或 Application.onCreate 中调用
+     * lifecycleScope.launch {
+     *     val result = DynamicLinksSDK.checkDeferredDeeplink(context)
+     *     if (result.found) {
+     *         // 处理延迟深链
+     *         val deeplinkId = result.deeplinkId
+     *         val utmSource = result.utmSource
+     *         // 导航到目标页面...
+     *     }
+     * }
+     * ```
+     * 
+     * @param context Android Context
+     * @param forceCheck 是否强制检查（忽略首次启动标记，用于测试）
+     * @return DeferredDeeplinkData 包含是否找到延迟深链及链接数据
+     * @throws DynamicLinksSDKError.NotInitialized 如果 SDK 未初始化
+     */
+    @JvmStatic
+    @JvmOverloads
+    public suspend fun checkDeferredDeeplink(
+        context: Context,
+        forceCheck: Boolean = false
+    ): DeferredDeeplinkData {
+        ensureInitialized()
+        
+        // 检查是否是首次启动
+        if (!forceCheck && !DeviceFingerprint.isFirstLaunch(context)) {
+            return DeferredDeeplinkData(found = false, linkData = null)
+        }
+        
+        return withContext(Dispatchers.IO) {
+            try {
+                // 标记已检查
+                DeviceFingerprint.markFirstLaunchChecked(context)
+                
+                val fingerprintId = DeviceFingerprint.getFingerprint(context)
+                val userAgent = DeviceFingerprint.getDefaultUserAgent(context)
+                val metrics = context.resources.displayMetrics
+                val screenResolution = "${metrics.widthPixels}x${metrics.heightPixels}"
+                val timezone = TimeZone.getDefault().id
+                val language = Locale.getDefault().language
+                
+                val response = apiService.getDeferredDeeplink(
+                    fingerprintId = fingerprintId,
+                    userAgent = userAgent,
+                    screenResolution = screenResolution,
+                    timezone = timezone,
+                    language = language
+                )
+                
+                when {
+                    response.isSuccess -> {
+                        val data = response.getOrNull()!!
+                        if (data.found) {
+                            // 确认安装
+                            confirmInstallInternal(context)
+                        }
+                        DeferredDeeplinkData(
+                            found = data.found,
+                            linkData = data.linkData
+                        )
+                    }
+                    else -> {
+                        DeferredDeeplinkData(found = false, linkData = null)
+                    }
+                }
+            } catch (e: Exception) {
+                DeferredDeeplinkData(found = false, linkData = null)
+            }
+        }
+    }
+    
+    /**
+     * 手动确认安装（通常由 checkDeferredDeeplink 自动调用）
+     * 
+     * @param context Android Context
+     */
+    @JvmStatic
+    public suspend fun confirmInstall(context: Context) {
+        ensureInitialized()
+        confirmInstallInternal(context)
+    }
+    
+    private suspend fun confirmInstallInternal(context: Context) {
+        withContext(Dispatchers.IO) {
+            try {
+                val fingerprintId = DeviceFingerprint.getFingerprint(context)
+                val userAgent = DeviceFingerprint.getDefaultUserAgent(context)
+                val deviceModel = Build.MODEL
+                val osVersion = Build.VERSION.RELEASE
+                val appVersion = try {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                } catch (e: Exception) {
+                    null
+                }
+                
+                apiService.confirmInstall(
+                    fingerprintId = fingerprintId,
+                    userAgent = userAgent,
+                    deviceModel = deviceModel,
+                    osVersion = osVersion,
+                    appVersion = appVersion
+                )
+            } catch (e: Exception) {
+                // Silently fail - install confirmation is best-effort
+            }
+        }
+    }
+    
+    /**
+     * 重置首次启动状态（用于测试）
+     * 
+     * @param context Android Context
+     */
+    @JvmStatic
+    public fun resetDeferredDeeplinkState(context: Context) {
+        DeviceFingerprint.resetFirstLaunch(context)
     }
 
 }
