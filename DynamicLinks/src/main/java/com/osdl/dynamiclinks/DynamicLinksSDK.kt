@@ -1,19 +1,23 @@
 package com.osdl.dynamiclinks
 
-import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.RemoteException
+import com.android.installreferrer.api.InstallReferrerClient
+import com.android.installreferrer.api.InstallReferrerStateListener
 import com.osdl.dynamiclinks.network.ApiService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.util.Locale
 import java.util.TimeZone
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.resume
 
 /**
  * DynamicLinks SDK 主入口
@@ -357,37 +361,43 @@ public object DynamicLinksSDK {
         forceCheck: Boolean = false
     ): DeferredDeeplinkData {
         ensureInitialized()
-        
+
         // 检查是否是首次启动
         if (!forceCheck && !DeviceFingerprint.isFirstLaunch(context)) {
             return DeferredDeeplinkData(found = false, linkData = null)
         }
-        
+
         return withContext(Dispatchers.IO) {
             try {
                 // 标记已检查
                 DeviceFingerprint.markFirstLaunchChecked(context)
-                
-                val fingerprintId = DeviceFingerprint.getFingerprint(context)
+
                 val userAgent = DeviceFingerprint.getDefaultUserAgent(context)
+
+                // Priority 1: Try Install Referrer API (>95% accuracy)
+                val referrerResult = tryInstallReferrer(context, userAgent)
+                if (referrerResult != null && referrerResult.found) {
+                    confirmInstallInternal(context)
+                    return@withContext referrerResult
+                }
+
+                // Priority 2: Fall back to fingerprint matching (50-70% accuracy)
                 val metrics = context.resources.displayMetrics
                 val screenResolution = "${metrics.widthPixels}x${metrics.heightPixels}"
                 val timezone = TimeZone.getDefault().id
                 val language = Locale.getDefault().language
-                
+
                 val response = apiService.getDeferredDeeplink(
-                    fingerprintId = fingerprintId,
                     userAgent = userAgent,
                     screenResolution = screenResolution,
                     timezone = timezone,
                     language = language
                 )
-                
+
                 when {
                     response.isSuccess -> {
                         val data = response.getOrNull()!!
                         if (data.found) {
-                            // 确认安装
                             confirmInstallInternal(context)
                         }
                         DeferredDeeplinkData(
@@ -402,6 +412,81 @@ public object DynamicLinksSDK {
             } catch (e: Exception) {
                 DeferredDeeplinkData(found = false, linkData = null)
             }
+        }
+    }
+
+    /**
+     * 尝试通过 Install Referrer API 获取延迟深链
+     * 返回 null 表示 Install Referrer 不可用或未包含 deeplink_id
+     */
+    private suspend fun tryInstallReferrer(context: Context, userAgent: String): DeferredDeeplinkData? {
+        val referrerString = readInstallReferrer(context) ?: return null
+
+        // Parse deeplink_id from referrer string (format: "deeplink_id=xxx&utm_source=grivn")
+        val params = referrerString.split("&").associate { param ->
+            val parts = param.split("=", limit = 2)
+            if (parts.size == 2) parts[0] to parts[1] else parts[0] to ""
+        }
+        val deeplinkId = params["deeplink_id"]
+        if (deeplinkId.isNullOrBlank()) return null
+
+        val response = apiService.getDeferredByReferrer(
+            referrerString = referrerString,
+            deeplinkId = deeplinkId,
+            userAgent = userAgent
+        )
+
+        return when {
+            response.isSuccess -> {
+                val data = response.getOrNull()!!
+                DeferredDeeplinkData(
+                    found = data.found,
+                    linkData = data.linkData
+                )
+            }
+            else -> null
+        }
+    }
+
+    /**
+     * 读取 Google Play Install Referrer
+     * @return referrer 字符串，如果不可用返回 null
+     */
+    private suspend fun readInstallReferrer(context: Context): String? {
+        return try {
+            suspendCancellableCoroutine { continuation ->
+                val client = InstallReferrerClient.newBuilder(context).build()
+                client.startConnection(object : InstallReferrerStateListener {
+                    override fun onInstallReferrerSetupFinished(responseCode: Int) {
+                        when (responseCode) {
+                            InstallReferrerClient.InstallReferrerResponse.OK -> {
+                                try {
+                                    val referrer = client.installReferrer.installReferrer
+                                    client.endConnection()
+                                    if (continuation.isActive) continuation.resume(referrer)
+                                } catch (e: RemoteException) {
+                                    client.endConnection()
+                                    if (continuation.isActive) continuation.resume(null)
+                                }
+                            }
+                            else -> {
+                                client.endConnection()
+                                if (continuation.isActive) continuation.resume(null)
+                            }
+                        }
+                    }
+
+                    override fun onInstallReferrerServiceDisconnected() {
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+                })
+
+                continuation.invokeOnCancellation {
+                    try { client.endConnection() } catch (_: Exception) {}
+                }
+            }
+        } catch (e: Exception) {
+            null
         }
     }
     
@@ -419,7 +504,6 @@ public object DynamicLinksSDK {
     private suspend fun confirmInstallInternal(context: Context) {
         withContext(Dispatchers.IO) {
             try {
-                val fingerprintId = DeviceFingerprint.getFingerprint(context)
                 val userAgent = DeviceFingerprint.getDefaultUserAgent(context)
                 val deviceModel = Build.MODEL
                 val osVersion = Build.VERSION.RELEASE
@@ -428,9 +512,8 @@ public object DynamicLinksSDK {
                 } catch (e: Exception) {
                     null
                 }
-                
+
                 apiService.confirmInstall(
-                    fingerprintId = fingerprintId,
                     userAgent = userAgent,
                     deviceModel = deviceModel,
                     osVersion = osVersion,

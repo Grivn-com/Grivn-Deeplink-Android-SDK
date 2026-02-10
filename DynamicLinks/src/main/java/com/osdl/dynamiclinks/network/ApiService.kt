@@ -130,47 +130,68 @@ internal class ApiService(
     
     /**
      * 获取延迟深链
+     *
+     * 指纹匹配由服务端根据 IP + User-Agent 自动完成，SDK 不发送 fingerprint_id
      */
     fun getDeferredDeeplink(
-        fingerprintId: String,
         userAgent: String,
         screenResolution: String? = null,
         timezone: String? = null,
         language: String? = null
     ): ApiResponse<DeferredDeeplinkResponse> {
         val url = "$baseUrl/api/v1/analytics/deferred"
-        
+
         val body = DeferredDeeplinkRequest(
-            fingerprintId = fingerprintId,
             userAgent = userAgent,
             screenResolution = screenResolution,
             timezone = timezone,
             language = language
         )
-        
+
         return post(url, body)
     }
-    
+
+    /**
+     * 通过 Install Referrer 获取延迟深链
+     *
+     * 准确率 >95%，优先于指纹匹配
+     */
+    fun getDeferredByReferrer(
+        referrerString: String? = null,
+        deeplinkId: String? = null,
+        userAgent: String
+    ): ApiResponse<DeferredDeeplinkResponse> {
+        val url = "$baseUrl/api/v1/analytics/install-referrer"
+
+        val body = InstallReferrerApiRequest(
+            referrerString = referrerString,
+            deeplinkId = deeplinkId,
+            userAgent = userAgent
+        )
+
+        return post(url, body)
+    }
+
     /**
      * 确认安装
+     *
+     * 指纹匹配由服务端根据 IP + User-Agent 自动完成，SDK 不发送 fingerprint_id
      */
     fun confirmInstall(
-        fingerprintId: String,
         userAgent: String,
         deviceModel: String? = null,
         osVersion: String? = null,
         appVersion: String? = null
     ): ApiResponse<ConfirmInstallResponse> {
         val url = "$baseUrl/api/v1/analytics/confirm-install"
-        
+
         val body = ConfirmInstallRequest(
-            fingerprintId = fingerprintId,
             userAgent = userAgent,
             deviceModel = deviceModel,
             osVersion = osVersion,
             appVersion = appVersion
         )
-        
+
         return post(url, body)
     }
     
@@ -223,7 +244,7 @@ internal class ApiService(
                     val data = gson.fromJson(dataJson, T::class.java)
                     ApiResponse.success(data)
                 } catch (e: Exception) {
-                    ApiResponse.error(DynamicLinksSDKError.ParseError("piwenzi to parse response", e))
+                    ApiResponse.error(DynamicLinksSDKError.ParseError("Failed to parse response", e))
                 }
             }
         } catch (e: IOException) {
@@ -291,10 +312,10 @@ internal data class ExchangeShortLinkRequest(
 
 /**
  * 获取延迟深链请求
+ *
+ * 注意：fingerprint_id 由服务端根据 IP + User-Agent 自动生成，SDK 不需要发送
  */
 internal data class DeferredDeeplinkRequest(
-    @SerializedName("fingerprint_id") val fingerprintId: String,
-    @SerializedName("ip_address") val ipAddress: String? = null,
     @SerializedName("user_agent") val userAgent: String,
     @SerializedName("screen_resolution") val screenResolution: String? = null,
     @SerializedName("timezone") val timezone: String? = null,
@@ -306,15 +327,25 @@ internal data class DeferredDeeplinkRequest(
  */
 internal data class DeferredDeeplinkResponse(
     @SerializedName("found") val found: Boolean,
-    @SerializedName("link_data") val linkData: Map<String, Any>?
+    @SerializedName("link_data") val linkData: Map<String, Any>?,
+    @SerializedName("match_tier") val matchTier: String?
+)
+
+/**
+ * Install Referrer 请求
+ */
+internal data class InstallReferrerApiRequest(
+    @SerializedName("referrer_string") val referrerString: String? = null,
+    @SerializedName("deeplink_id") val deeplinkId: String? = null,
+    @SerializedName("user_agent") val userAgent: String
 )
 
 /**
  * 确认安装请求
+ *
+ * 注意：fingerprint_id 由服务端根据 IP + User-Agent 自动生成，SDK 不需要发送
  */
 internal data class ConfirmInstallRequest(
-    @SerializedName("fingerprint_id") val fingerprintId: String,
-    @SerializedName("ip_address") val ipAddress: String? = null,
     @SerializedName("user_agent") val userAgent: String,
     @SerializedName("device_model") val deviceModel: String? = null,
     @SerializedName("os_version") val osVersion: String? = null,
