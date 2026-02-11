@@ -17,7 +17,6 @@ import androidx.core.net.toUri
  * @property androidParameters Parameters specific to Android devices for the Dynamic Link.
  * @property iTunesConnectParameters Parameters for iTunes Connect analytics related to the link.
  * @property socialMetaTagParameters Parameters for social media meta tags associated with the link.
- * @property options Additional options related to the Dynamic Link.
  * @property otherPlatformParameters Parameters for other platforms supported by the Dynamic Link.
  * @property analyticsParameters Parameters related to analytics for tracking the Dynamic Link.
  */
@@ -28,7 +27,6 @@ public data class DynamicLinkComponents(
     public val androidParameters: AndroidParameters? = null,
     public val iTunesConnectParameters: ItunesConnectAnalyticsParameters? = null,
     public val socialMetaTagParameters: SocialMetaTagParameters? = null,
-    public val options: DynamicLinkOptionsParameters = DynamicLinkOptionsParameters(),
     public val otherPlatformParameters: OtherPlatformParameters? = null,
     public val analyticsParameters: AnalyticsParameters? = null
 ) {
@@ -66,7 +64,6 @@ public data class DynamicLinkComponents(
         addParams(androidParameters)
         addParams(iTunesConnectParameters)
         addParams(otherPlatformParameters)
-        addParams(options)
 
         return builder.build()
     }
@@ -172,38 +169,6 @@ public data class ItunesConnectAnalyticsParameters(
             campaignToken?.let { "ct" to it },
             providerToken?.let { "pt" to it }
         ).toMap()
-}
-
-/**
- * Represents the options for a Dynamic Link, such as the length of the path used in the link.
- * This class allows setting the path length, which determines whether the path should be easily guessable
- * or more secure (unguessable).
- *
- * @property pathLength The length of the Dynamic Link path. The default value is `UNGUESSABLE`.
- */
-public data class DynamicLinkOptionsParameters(
-    val pathLength: DynamicLinkPathLength = DynamicLinkPathLength.UNGUESSABLE
-) : DynamicLinkParameter {
-    override fun toMap(): Map<String, String> =
-        mapOf("pathLength" to pathLength.toQueryValue())
-}
-
-/**
- * Enum representing the possible lengths for the Dynamic Link path.
- *
- * - `UNGUESSABLE` indicates that the path should be long and secure, making it difficult to guess.
- * - `SHORT` indicates a shorter, easier-to-guess path, suitable for cases where non user specific content is being shared.
- *
- * @property value The integer value representing the path length option.
- */
-public enum class DynamicLinkPathLength private constructor(public val value: Int) {
-    UNGUESSABLE(0),
-    SHORT(1);
-
-    public fun toQueryValue(): String = when (this) {
-        SHORT -> "SHORT"
-        UNGUESSABLE -> "UNGUESSABLE"
-    }
 }
 
 /**

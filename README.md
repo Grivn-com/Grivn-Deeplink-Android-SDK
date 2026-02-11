@@ -159,7 +159,6 @@ Parameters for creating a dynamic link:
 | `socialMetaTagParameters` | `SocialMetaTagParameters?` | Social sharing preview |
 | `iTunesConnectParameters` | `ItunesConnectAnalyticsParameters?` | iTunes affiliate tracking |
 | `otherPlatformParameters` | `OtherPlatformParameters?` | Desktop fallback URL |
-| `options` | `DynamicLinkOptionsParameters` | Link options (path length) |
 
 ### DynamicLink
 
