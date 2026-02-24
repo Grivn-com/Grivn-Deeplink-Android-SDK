@@ -59,6 +59,13 @@ public object DynamicLinksSDK {
     private val isInitialized = AtomicBoolean(false)
     private var allowedHosts: List<String> = emptyList()
     private var trustAllCerts: Boolean = false
+
+    /**
+     * Whether analytics data collection is enabled (deferred deeplink & install confirmation).
+     * When disabled, regular deep link handling (App Links) continues to work normally.
+     */
+    @JvmStatic
+    public var analyticsEnabled: Boolean = true
     
     // SDK 配置
     private var baseUrl: String = ""
@@ -189,6 +196,19 @@ public object DynamicLinksSDK {
      */
     @JvmStatic
     public fun isInitialized(): Boolean = isInitialized.get()
+
+    /**
+     * Enable or disable analytics data collection.
+     * When disabled, `checkDeferredDeeplink` returns not-found and `confirmInstall` is a no-op.
+     * Regular deep link handling (App Links) is not affected.
+     *
+     * @param enabled true to enable (default), false to disable
+     */
+    @JvmStatic
+    public fun setAnalyticsEnabled(enabled: Boolean): DynamicLinksSDK {
+        analyticsEnabled = enabled
+        return this
+    }
 
     /**
      * 设置是否信任所有证书（仅开发环境使用）
@@ -362,6 +382,11 @@ public object DynamicLinksSDK {
     ): DeferredDeeplinkData {
         ensureInitialized()
 
+        // Analytics opt-out: skip deferred deeplink check
+        if (!analyticsEnabled) {
+            return DeferredDeeplinkData(found = false, linkData = null)
+        }
+
         // 检查是否是首次启动
         if (!forceCheck && !DeviceFingerprint.isFirstLaunch(context)) {
             return DeferredDeeplinkData(found = false, linkData = null)
@@ -502,6 +527,9 @@ public object DynamicLinksSDK {
     }
     
     private suspend fun confirmInstallInternal(context: Context) {
+        // Analytics opt-out: skip install confirmation
+        if (!analyticsEnabled) return
+
         withContext(Dispatchers.IO) {
             try {
                 val userAgent = DeviceFingerprint.getDefaultUserAgent(context)
