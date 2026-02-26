@@ -157,16 +157,18 @@ public object DynamicLinksSDK {
         this.projectId = projectId
         this.appContext = context
         this.deferredDeeplinkCallback = callback
-        
+
         apiService = ApiService(
             baseUrl = this.baseUrl,
             secretKey = this.secretKey,
             timeout = 30,
             trustAllCerts = trustAllCerts
         )
-        
+
         isInitialized.set(true)
-        
+
+        SDKLogger.info("SDK initialized — baseUrl=${this.baseUrl}, projectId=${projectId ?: "(none)"}, analyticsEnabled=$analyticsEnabled")
+
         // 自动检查 Deferred Deeplink
         context?.let { ctx ->
             sdkScope.launch {
@@ -174,7 +176,7 @@ public object DynamicLinksSDK {
                     val result = checkDeferredDeeplink(ctx, forceCheck = false)
                     callback?.invoke(result)
                 } catch (e: Exception) {
-                    // 静默失败，不影响 App 启动
+                    SDKLogger.warn("Auto deferred-deeplink check failed", e)
                 }
             }
         }
@@ -207,6 +209,47 @@ public object DynamicLinksSDK {
     @JvmStatic
     public fun setAnalyticsEnabled(enabled: Boolean): DynamicLinksSDK {
         analyticsEnabled = enabled
+        return this
+    }
+
+    /**
+     * 启用或关闭调试模式
+     *
+     * 开启后，SDK 会以 `GrivnSDK` 标签输出 DEBUG 级别的日志（初始化、网络请求、
+     * Deferred Deeplink 检查等）。关闭后完全静默（NONE）。
+     *
+     * @param enabled true 为开启（DEBUG 级别），false 为关闭（NONE）
+     */
+    @JvmStatic
+    public fun setDebugMode(enabled: Boolean): DynamicLinksSDK {
+        SDKLogger.logLevel = if (enabled) LogLevel.DEBUG else LogLevel.NONE
+        return this
+    }
+
+    /**
+     * 设置日志级别
+     *
+     * 可选级别：DEBUG、INFO、WARN、ERROR、NONE（默认 NONE，完全静默）。
+     *
+     * @param level 日志级别
+     */
+    @JvmStatic
+    public fun setLogLevel(level: LogLevel): DynamicLinksSDK {
+        SDKLogger.logLevel = level
+        return this
+    }
+
+    /**
+     * 注册自定义日志处理器
+     *
+     * 开发者可实现 [DynamicLinksLogHandler] 接口，将 SDK 日志接入 Timber、
+     * Crashlytics 等外部日志系统。
+     *
+     * @param handler 自定义日志处理器
+     */
+    @JvmStatic
+    public fun setLogger(handler: DynamicLinksLogHandler): DynamicLinksSDK {
+        SDKLogger.handler = handler
         return this
     }
 
@@ -263,21 +306,27 @@ public object DynamicLinksSDK {
     @Throws(DynamicLinksSDKError::class)
     public suspend fun handleDynamicLink(incomingUrl: Uri): DynamicLink {
         ensureInitialized()
-        
+
+        SDKLogger.debug("handleDynamicLink — url=$incomingUrl")
+
         if (!isValidDynamicLink(incomingUrl)) {
+            SDKLogger.warn("Invalid dynamic link: $incomingUrl")
             throw DynamicLinksSDKError.InvalidDynamicLink
         }
 
         return withContext(Dispatchers.IO) {
             val response = apiService.exchangeShortLink(incomingUrl)
-            
+
             when {
                 response.isSuccess -> {
                     val exchangeResponse = response.getOrNull()!!
+                    SDKLogger.info("exchangeShortLink succeeded — longLink=${exchangeResponse.longLink}")
                     DynamicLink(exchangeResponse.longLink)
                 }
                 else -> {
-                    throw response.exceptionOrNull() ?: DynamicLinksSDKError.InvalidDynamicLink
+                    val ex = response.exceptionOrNull() ?: DynamicLinksSDKError.InvalidDynamicLink
+                    SDKLogger.error("exchangeShortLink failed", ex)
+                    throw ex
                 }
             }
         }
@@ -392,6 +441,8 @@ public object DynamicLinksSDK {
             return DeferredDeeplinkData(found = false, linkData = null)
         }
 
+        SDKLogger.info("Checking deferred deeplink (forceCheck=$forceCheck)")
+
         return withContext(Dispatchers.IO) {
             try {
                 // 标记已检查
@@ -400,8 +451,10 @@ public object DynamicLinksSDK {
                 val userAgent = DeviceFingerprint.getDefaultUserAgent(context)
 
                 // Priority 1: Try Install Referrer API (>95% accuracy)
+                SDKLogger.debug("Trying Install Referrer API first...")
                 val referrerResult = tryInstallReferrer(context, userAgent)
                 if (referrerResult != null && referrerResult.found) {
+                    SDKLogger.info("Deferred deeplink found via Install Referrer")
                     confirmInstallInternal(context)
                     return@withContext referrerResult
                 }
@@ -411,6 +464,8 @@ public object DynamicLinksSDK {
                 val screenResolution = "${metrics.widthPixels}x${metrics.heightPixels}"
                 val timezone = TimeZone.getDefault().id
                 val language = Locale.getDefault().language
+
+                SDKLogger.debug("Falling back to fingerprint matching — screen=$screenResolution, tz=$timezone, lang=$language")
 
                 val response = apiService.getDeferredDeeplink(
                     userAgent = userAgent,
@@ -423,7 +478,10 @@ public object DynamicLinksSDK {
                     response.isSuccess -> {
                         val data = response.getOrNull()!!
                         if (data.found) {
+                            SDKLogger.info("Deferred deeplink found via fingerprint (tier=${data.matchTier})")
                             confirmInstallInternal(context)
+                        } else {
+                            SDKLogger.info("No deferred deeplink found")
                         }
                         DeferredDeeplinkData(
                             found = data.found,
@@ -431,10 +489,12 @@ public object DynamicLinksSDK {
                         )
                     }
                     else -> {
+                        SDKLogger.warn("Deferred deeplink request failed", response.exceptionOrNull())
                         DeferredDeeplinkData(found = false, linkData = null)
                     }
                 }
             } catch (e: Exception) {
+                SDKLogger.error("checkDeferredDeeplink exception", e)
                 DeferredDeeplinkData(found = false, linkData = null)
             }
         }
@@ -445,7 +505,13 @@ public object DynamicLinksSDK {
      * 返回 null 表示 Install Referrer 不可用或未包含 deeplink_id
      */
     private suspend fun tryInstallReferrer(context: Context, userAgent: String): DeferredDeeplinkData? {
-        val referrerString = readInstallReferrer(context) ?: return null
+        val referrerString = readInstallReferrer(context)
+        if (referrerString == null) {
+            SDKLogger.debug("Install Referrer not available")
+            return null
+        }
+
+        SDKLogger.debug("Install Referrer string: $referrerString")
 
         // Parse deeplink_id from referrer string (format: "deeplink_id=xxx&utm_source=grivn")
         val params = referrerString.split("&").associate { param ->
@@ -453,7 +519,12 @@ public object DynamicLinksSDK {
             if (parts.size == 2) parts[0] to parts[1] else parts[0] to ""
         }
         val deeplinkId = params["deeplink_id"]
-        if (deeplinkId.isNullOrBlank()) return null
+        if (deeplinkId.isNullOrBlank()) {
+            SDKLogger.debug("No deeplink_id in referrer, skipping")
+            return null
+        }
+
+        SDKLogger.debug("Querying deferred deeplink by referrer — deeplinkId=$deeplinkId")
 
         val response = apiService.getDeferredByReferrer(
             referrerString = referrerString,
@@ -469,7 +540,10 @@ public object DynamicLinksSDK {
                     linkData = data.linkData
                 )
             }
-            else -> null
+            else -> {
+                SDKLogger.warn("Install Referrer API request failed", response.exceptionOrNull())
+                null
+            }
         }
     }
 
@@ -483,6 +557,7 @@ public object DynamicLinksSDK {
                 val client = InstallReferrerClient.newBuilder(context).build()
                 client.startConnection(object : InstallReferrerStateListener {
                     override fun onInstallReferrerSetupFinished(responseCode: Int) {
+                        SDKLogger.debug("Install Referrer setup finished — responseCode=$responseCode")
                         when (responseCode) {
                             InstallReferrerClient.InstallReferrerResponse.OK -> {
                                 try {
@@ -490,11 +565,13 @@ public object DynamicLinksSDK {
                                     client.endConnection()
                                     if (continuation.isActive) continuation.resume(referrer)
                                 } catch (e: RemoteException) {
+                                    SDKLogger.warn("Install Referrer RemoteException", e)
                                     client.endConnection()
                                     if (continuation.isActive) continuation.resume(null)
                                 }
                             }
                             else -> {
+                                SDKLogger.debug("Install Referrer unavailable (code=$responseCode)")
                                 client.endConnection()
                                 if (continuation.isActive) continuation.resume(null)
                             }
@@ -502,6 +579,7 @@ public object DynamicLinksSDK {
                     }
 
                     override fun onInstallReferrerServiceDisconnected() {
+                        SDKLogger.debug("Install Referrer service disconnected")
                         if (continuation.isActive) continuation.resume(null)
                     }
                 })
@@ -511,6 +589,7 @@ public object DynamicLinksSDK {
                 }
             }
         } catch (e: Exception) {
+            SDKLogger.warn("readInstallReferrer exception", e)
             null
         }
     }
@@ -541,14 +620,17 @@ public object DynamicLinksSDK {
                     null
                 }
 
+                SDKLogger.debug("confirmInstall — device=$deviceModel, os=$osVersion, appVersion=$appVersion")
+
                 apiService.confirmInstall(
                     userAgent = userAgent,
                     deviceModel = deviceModel,
                     osVersion = osVersion,
                     appVersion = appVersion
                 )
+                SDKLogger.info("Install confirmed")
             } catch (e: Exception) {
-                // Silently fail - install confirmation is best-effort
+                SDKLogger.warn("confirmInstall failed (best-effort)", e)
             }
         }
     }

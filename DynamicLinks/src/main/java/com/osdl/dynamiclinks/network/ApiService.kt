@@ -7,6 +7,7 @@ import com.osdl.dynamiclinks.DynamicLinkComponents
 import com.osdl.dynamiclinks.DynamicLinkShortenResponse
 import com.osdl.dynamiclinks.DynamicLinksSDKError
 import com.osdl.dynamiclinks.ExchangeLinkResponse
+import com.osdl.dynamiclinks.SDKLogger
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -196,60 +197,76 @@ internal class ApiService(
     }
     
     /**
+     * 对 API Key 脱敏：保留前 4 位和后 3 位，中间用 *** 替代
+     */
+    private fun maskApiKey(key: String): String {
+        if (key.length <= 10) return "***"
+        return "${key.take(4)}***${key.takeLast(3)}"
+    }
+
+    /**
      * POST 请求
      */
     private inline fun <reified T> post(url: String, body: Any): ApiResponse<T> {
         val jsonBody = gson.toJson(body)
-        
+
         val request = Request.Builder()
             .url(url)
             .post(jsonBody.toRequestBody(jsonMediaType))
             .build()
-        
+
         return execute(request)
     }
-    
+
     /**
      * 执行请求
      */
     private inline fun <reified T> execute(request: Request): ApiResponse<T> {
+        SDKLogger.debug("→ ${request.method} ${request.url} [key=${maskApiKey(secretKey)}]")
+
         return try {
             client.newCall(request).execute().use { response ->
                 val responseBody = response.body?.string()
-                
+                val bodyLen = responseBody?.length ?: 0
+
+                SDKLogger.debug("← ${response.code} ($bodyLen bytes)")
+
                 if (!response.isSuccessful) {
-                    return@use ApiResponse.error(
-                        DynamicLinksSDKError.NetworkError("Server error: ${response.code}", null)
-                    )
+                    val err = DynamicLinksSDKError.NetworkError("Server error: ${response.code}", null)
+                    SDKLogger.error("HTTP error ${response.code}", err)
+                    return@use ApiResponse.error(err)
                 }
-                
+
                 if (responseBody.isNullOrEmpty()) {
-                    return@use ApiResponse.error(
-                        DynamicLinksSDKError.NetworkError("Empty response", null)
-                    )
+                    val err = DynamicLinksSDKError.NetworkError("Empty response", null)
+                    SDKLogger.error("Empty response body")
+                    return@use ApiResponse.error(err)
                 }
-                
+
                 try {
                     val baseResponse = gson.fromJson(responseBody, BaseApiResponse::class.java)
                     if (baseResponse.code != 0) {
-                        return@use ApiResponse.error(
-                            DynamicLinksSDKError.ServerError(
-                                baseResponse.message ?: "Server error",
-                                baseResponse.code
-                            )
+                        val err = DynamicLinksSDKError.ServerError(
+                            baseResponse.message ?: "Server error",
+                            baseResponse.code
                         )
+                        SDKLogger.error("Server error code=${baseResponse.code}: ${baseResponse.message}")
+                        return@use ApiResponse.error(err)
                     }
-                    
+
                     val dataJson = gson.toJson(baseResponse.data)
                     val data = gson.fromJson(dataJson, T::class.java)
                     ApiResponse.success(data)
                 } catch (e: Exception) {
+                    SDKLogger.error("Response parse error", e)
                     ApiResponse.error(DynamicLinksSDKError.ParseError("Failed to parse response", e))
                 }
             }
         } catch (e: IOException) {
+            SDKLogger.error("Network I/O error: ${e.message}", e)
             ApiResponse.error(DynamicLinksSDKError.NetworkError("Network error: ${e.message}", e))
         } catch (e: Exception) {
+            SDKLogger.error("Unknown network error: ${e.message}", e)
             ApiResponse.error(DynamicLinksSDKError.NetworkError("Unknown error: ${e.message}", e))
         }
     }
