@@ -83,5 +83,5 @@ afterEvaluate {
 }
 
 fun getGitVersion(): String {
-    return "1.0.0"
+    return "1.0.7"
 }
