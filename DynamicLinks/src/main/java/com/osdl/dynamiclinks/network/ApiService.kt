@@ -174,6 +174,14 @@ internal class ApiService(
     }
 
     /**
+     * 批量上报 SDK 事件
+     */
+    fun trackEvents(request: EventBatchRequest): ApiResponse<EventBatchResponse> {
+        val url = "$baseUrl/api/v1/events"
+        return post(url, request)
+    }
+
+    /**
      * 确认安装
      *
      * 指纹匹配由服务端根据 IP + User-Agent 自动完成，SDK 不发送 fingerprint_id
@@ -375,6 +383,37 @@ internal data class ConfirmInstallRequest(
 internal data class ConfirmInstallResponse(
     @SerializedName("success") val success: Boolean,
     @SerializedName("message") val message: String?
+)
+
+/**
+ * 事件批量上报请求
+ */
+internal data class EventBatchRequest(
+    @SerializedName("project_id") val projectId: String,
+    @SerializedName("device_id") val deviceId: String,
+    @SerializedName("device_type") val deviceType: String,
+    @SerializedName("os_version") val osVersion: String,
+    @SerializedName("app_version") val appVersion: String,
+    @SerializedName("sdk_version") val sdkVersion: String,
+    @SerializedName("events") val events: List<EventItemRequest>
+)
+
+/**
+ * 单个事件
+ */
+internal data class EventItemRequest(
+    @SerializedName("event_name") val eventName: String,
+    @SerializedName("params") val params: Map<String, Any>? = null,
+    @SerializedName("timestamp") val timestamp: Long? = null,
+    @SerializedName("deeplink_id") val deeplinkId: String = "",
+    @SerializedName("user_id") val userId: String = ""
+)
+
+/**
+ * 事件批量上报响应
+ */
+internal data class EventBatchResponse(
+    @SerializedName("accepted") val accepted: Int
 )
 
 /**

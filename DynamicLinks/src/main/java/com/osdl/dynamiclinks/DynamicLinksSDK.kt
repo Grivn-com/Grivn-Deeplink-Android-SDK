@@ -73,13 +73,16 @@ public object DynamicLinksSDK {
     private var projectId: String? = null
     
     private lateinit var apiService: ApiService
-    
+
+    // Event tracker
+    private var eventTracker: EventTracker? = null
+
     // 用于自动检查的协程 Scope
     private val sdkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    
+
     // Deferred Deeplink 回调
     private var deferredDeeplinkCallback: ((DeferredDeeplinkData) -> Unit)? = null
-    
+
     // Application Context (用于自动检查)
     private var appContext: Context? = null
 
@@ -166,6 +169,28 @@ public object DynamicLinksSDK {
         )
 
         isInitialized.set(true)
+
+        // Initialize event tracker if analytics is enabled and projectId is available
+        if (analyticsEnabled && projectId != null && context != null) {
+            val deviceId = android.provider.Settings.Secure.getString(
+                context.contentResolver, android.provider.Settings.Secure.ANDROID_ID
+            ) ?: "unknown"
+            val osVersion = Build.VERSION.RELEASE
+            val appVersion = try {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: ""
+            } catch (_: Exception) { "" }
+
+            eventTracker = EventTracker(
+                apiService = apiService,
+                projectId = projectId,
+                deviceId = deviceId,
+                deviceType = "android",
+                osVersion = osVersion,
+                appVersion = appVersion,
+                sdkVersion = sdkVersion
+            )
+            eventTracker?.start()
+        }
 
         SDKLogger.info("SDK initialized — baseUrl=${this.baseUrl}, projectId=${projectId ?: "(none)"}, analyticsEnabled=$analyticsEnabled")
 
@@ -321,6 +346,19 @@ public object DynamicLinksSDK {
                 response.isSuccess -> {
                     val exchangeResponse = response.getOrNull()!!
                     SDKLogger.info("exchangeShortLink succeeded — longLink=${exchangeResponse.longLink}")
+
+                    // Auto-event: deeplink_first_open or deeplink_reopen
+                    if (analyticsEnabled) {
+                        val prefs = appContext?.getSharedPreferences("grivn_events", android.content.Context.MODE_PRIVATE)
+                        val key = "deeplink_opened_${incomingUrl}"
+                        if (prefs != null && !prefs.getBoolean(key, false)) {
+                            prefs.edit().putBoolean(key, true).apply()
+                            trackEvent("deeplink_first_open", mapOf("url" to incomingUrl.toString()))
+                        } else {
+                            trackEvent("deeplink_reopen", mapOf("url" to incomingUrl.toString()))
+                        }
+                    }
+
                     DynamicLink(exchangeResponse.longLink)
                 }
                 else -> {
@@ -455,6 +493,7 @@ public object DynamicLinksSDK {
                 val referrerResult = tryInstallReferrer(context, userAgent)
                 if (referrerResult != null && referrerResult.found) {
                     SDKLogger.info("Deferred deeplink found via Install Referrer")
+                    trackEvent("deferred_deeplink_match", mapOf("match_tier" to "referrer"))
                     confirmInstallInternal(context)
                     return@withContext referrerResult
                 }
@@ -479,6 +518,7 @@ public object DynamicLinksSDK {
                         val data = response.getOrNull()!!
                         if (data.found) {
                             SDKLogger.info("Deferred deeplink found via fingerprint (tier=${data.matchTier})")
+                            trackEvent("deferred_deeplink_match", mapOf("match_tier" to (data.matchTier ?: "unknown")))
                             confirmInstallInternal(context)
                         } else {
                             SDKLogger.info("No deferred deeplink found")
@@ -628,6 +668,7 @@ public object DynamicLinksSDK {
                     osVersion = osVersion,
                     appVersion = appVersion
                 )
+                trackEvent("app_install")
                 SDKLogger.info("Install confirmed")
             } catch (e: Exception) {
                 SDKLogger.warn("confirmInstall failed (best-effort)", e)
@@ -637,12 +678,52 @@ public object DynamicLinksSDK {
     
     /**
      * 重置首次启动状态（用于测试）
-     * 
+     *
      * @param context Android Context
      */
     @JvmStatic
     public fun resetDeferredDeeplinkState(context: Context) {
         DeviceFingerprint.resetFirstLaunch(context)
+    }
+
+    // ============ Event Tracking ============
+
+    /**
+     * Track a custom event.
+     *
+     * Events are batched locally and flushed to the server every 30 seconds
+     * or when 20 events accumulate.
+     *
+     * @param name Event name (e.g. "purchase", "sign_up")
+     * @param params Optional event parameters
+     */
+    @JvmStatic
+    @JvmOverloads
+    public fun trackEvent(name: String, params: Map<String, Any>? = null) {
+        if (!analyticsEnabled) return
+        eventTracker?.trackEvent(name, params)
+            ?: SDKLogger.warn("EventTracker not initialized — call init() with context and projectId first")
+    }
+
+    /**
+     * Set the user ID for event attribution.
+     *
+     * @param userId User identifier (e.g. your app's user ID)
+     */
+    @JvmStatic
+    public fun setUserId(userId: String) {
+        eventTracker?.setUserId(userId)
+            ?: SDKLogger.warn("EventTracker not initialized — call init() with context and projectId first")
+    }
+
+    /**
+     * Flush pending events to the server immediately.
+     */
+    @JvmStatic
+    public fun flushEvents() {
+        sdkScope.launch {
+            eventTracker?.flush()
+        }
     }
 
 }
