@@ -4,11 +4,13 @@ import android.net.Uri
 import androidx.core.net.toUri
 
 /**
- * 解析短链接的响应
- * 后端返回的是 URL query parameters，SDK 将其组装成长链接
+ * Response for resolving a short link.
+ *
+ * The backend returns URL query parameters, and the SDK assembles them into
+ * a full long link.
  */
 public data class ExchangeLinkResponse(
-    // 后端返回的各个参数字段
+    // Parameter fields returned by the backend
     val link: String? = null,
     val apn: String? = null,
     val afl: String? = null,
@@ -36,14 +38,14 @@ public data class ExchangeLinkResponse(
     val pt: String? = null
 ) {
     /**
-     * 将后端返回的参数组装成长链接 URI
+     * Builds a long-link `Uri` from the parameters returned by the backend.
      */
     val longLink: Uri
         get() {
             val baseLink = link ?: throw IllegalStateException("Missing 'link' parameter")
             val builder = Uri.parse("https://dynamiclinks.local").buildUpon()
             
-            // 添加所有非空参数
+            // Append all non-empty parameters
             builder.appendQueryParameter("link", baseLink)
             apn?.let { builder.appendQueryParameter("apn", it) }
             afl?.let { builder.appendQueryParameter("afl", it) }

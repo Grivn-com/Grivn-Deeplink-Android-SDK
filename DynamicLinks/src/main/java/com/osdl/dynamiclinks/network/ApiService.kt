@@ -21,8 +21,9 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
 /**
- * API 服务类
- * 通过 X-API-Key header 进行认证
+ * API service used by the SDK.
+ *
+ * Authentication is performed via the `X-API-Key` header.
  */
 internal class ApiService(
     private val baseUrl: String,
@@ -56,7 +57,7 @@ internal class ApiService(
     }
     
     /**
-     * 配置不安全的 SSL（仅开发环境）
+     * Configures insecure SSL (development only).
      */
     private fun configureUnsafeSsl(builder: OkHttpClient.Builder) {
         val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
@@ -74,7 +75,7 @@ internal class ApiService(
     }
     
     /**
-     * 创建短链接 (缩短链接)
+     * Creates a short link from the given components.
      */
     fun shortenUrl(
         projectId: String,
@@ -117,7 +118,7 @@ internal class ApiService(
     }
     
     /**
-     * 解析短链接 (还原长链接)
+     * Resolves a short link back to its long link representation.
      */
     fun exchangeShortLink(requestedLink: Uri): ApiResponse<ExchangeLinkResponse> {
         val url = "$baseUrl/api/v1/deeplinks/exchangeShortLink"
@@ -130,9 +131,10 @@ internal class ApiService(
     }
     
     /**
-     * 获取延迟深链
+     * Retrieves a deferred deeplink.
      *
-     * 指纹匹配由服务端根据 IP + User-Agent 自动完成，SDK 不发送 fingerprint_id
+     * Fingerprint matching is performed on the server based on IP + User-Agent.
+     * The SDK does not send a `fingerprint_id`.
      */
     fun getDeferredDeeplink(
         userAgent: String,
@@ -153,9 +155,9 @@ internal class ApiService(
     }
 
     /**
-     * 通过 Install Referrer 获取延迟深链
+     * Retrieves a deferred deeplink via the Install Referrer API.
      *
-     * 准确率 >95%，优先于指纹匹配
+     * Accuracy is >95%, so this is preferred over fingerprint matching.
      */
     fun getDeferredByReferrer(
         referrerString: String? = null,
@@ -174,7 +176,7 @@ internal class ApiService(
     }
 
     /**
-     * 批量上报 SDK 事件
+     * Sends a batch of SDK events.
      */
     fun trackEvents(request: EventBatchRequest): ApiResponse<EventBatchResponse> {
         val url = "$baseUrl/api/v1/events"
@@ -182,9 +184,10 @@ internal class ApiService(
     }
 
     /**
-     * 确认安装
+     * Confirms an install.
      *
-     * 指纹匹配由服务端根据 IP + User-Agent 自动完成，SDK 不发送 fingerprint_id
+     * Fingerprint matching is performed on the server based on IP + User-Agent.
+     * The SDK does not send a `fingerprint_id`.
      */
     fun confirmInstall(
         userAgent: String,
@@ -205,7 +208,7 @@ internal class ApiService(
     }
     
     /**
-     * 对 API Key 脱敏：保留前 4 位和后 3 位，中间用 *** 替代
+     * Masks the API key: keeps the first 4 and last 3 characters, replaces the middle with ***.
      */
     private fun maskApiKey(key: String): String {
         if (key.length <= 10) return "***"
@@ -213,7 +216,7 @@ internal class ApiService(
     }
 
     /**
-     * POST 请求
+     * Issues a POST request.
      */
     private inline fun <reified T> post(url: String, body: Any): ApiResponse<T> {
         val jsonBody = gson.toJson(body)
@@ -227,7 +230,7 @@ internal class ApiService(
     }
 
     /**
-     * 执行请求
+     * Executes an HTTP request.
      */
     private inline fun <reified T> execute(request: Request): ApiResponse<T> {
         SDKLogger.debug("→ ${request.method} ${request.url} [key=${maskApiKey(secretKey)}]")
@@ -281,7 +284,7 @@ internal class ApiService(
 }
 
 /**
- * API 响应基类
+ * Base API response from the backend.
  */
 internal data class BaseApiResponse(
     val code: Int,
@@ -290,7 +293,7 @@ internal data class BaseApiResponse(
 )
 
 /**
- * 创建 Deeplink 请求
+ * Request payload for creating a deeplink.
  */
 internal data class DeeplinkCreateRequest(
     @SerializedName("projectId") val projectId: String,
@@ -329,16 +332,17 @@ internal data class DeeplinkCreateRequest(
 )
 
 /**
- * 解析短链接请求
+ * Request payload for resolving a short link.
  */
 internal data class ExchangeShortLinkRequest(
     @SerializedName("requestedLink") val requestedLink: String
 )
 
 /**
- * 获取延迟深链请求
+ * Request payload for retrieving a deferred deeplink.
  *
- * 注意：fingerprint_id 由服务端根据 IP + User-Agent 自动生成，SDK 不需要发送
+ * Note: `fingerprint_id` is generated on the server based on IP + User-Agent;
+ * the SDK does not need to send it.
  */
 internal data class DeferredDeeplinkRequest(
     @SerializedName("user_agent") val userAgent: String,
@@ -348,7 +352,7 @@ internal data class DeferredDeeplinkRequest(
 )
 
 /**
- * 延迟深链响应
+ * Response payload for a deferred deeplink.
  */
 internal data class DeferredDeeplinkResponse(
     @SerializedName("found") val found: Boolean,
@@ -357,7 +361,7 @@ internal data class DeferredDeeplinkResponse(
 )
 
 /**
- * Install Referrer 请求
+ * Request payload for the Install Referrer API.
  */
 internal data class InstallReferrerApiRequest(
     @SerializedName("referrer_string") val referrerString: String? = null,
@@ -366,9 +370,10 @@ internal data class InstallReferrerApiRequest(
 )
 
 /**
- * 确认安装请求
+ * Request payload for confirming an install.
  *
- * 注意：fingerprint_id 由服务端根据 IP + User-Agent 自动生成，SDK 不需要发送
+ * Note: `fingerprint_id` is generated on the server based on IP + User-Agent;
+ * the SDK does not need to send it.
  */
 internal data class ConfirmInstallRequest(
     @SerializedName("user_agent") val userAgent: String,
@@ -378,7 +383,7 @@ internal data class ConfirmInstallRequest(
 )
 
 /**
- * 确认安装响应
+ * Response payload for confirming an install.
  */
 internal data class ConfirmInstallResponse(
     @SerializedName("success") val success: Boolean,
@@ -386,7 +391,7 @@ internal data class ConfirmInstallResponse(
 )
 
 /**
- * 事件批量上报请求
+ * Request payload for batching analytics events.
  */
 internal data class EventBatchRequest(
     @SerializedName("project_id") val projectId: String,
@@ -399,7 +404,7 @@ internal data class EventBatchRequest(
 )
 
 /**
- * 单个事件
+ * Single analytics event within a batch.
  */
 internal data class EventItemRequest(
     @SerializedName("event_name") val eventName: String,
@@ -410,14 +415,14 @@ internal data class EventItemRequest(
 )
 
 /**
- * 事件批量上报响应
+ * Response payload for a batched event submission.
  */
 internal data class EventBatchResponse(
     @SerializedName("accepted") val accepted: Int
 )
 
 /**
- * Deeplink 响应 (后端返回)
+ * Deeplink response returned by the backend.
  */
 internal data class DeeplinkResponse(
     @SerializedName("id") val id: String,
@@ -443,7 +448,7 @@ internal data class DeeplinkResponse(
 )
 
 /**
- * API 响应封装
+ * Wrapper type for API responses.
  */
 sealed class ApiResponse<T> {
     data class Success<T>(val data: T) : ApiResponse<T>()

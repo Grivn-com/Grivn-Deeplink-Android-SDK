@@ -6,52 +6,54 @@ import android.os.Build
 import android.webkit.WebSettings
 
 /**
- * Deferred Deeplink 数据类
- * 
- * 当用户通过 Deeplink 跳转到应用商店下载 App，首次打开时可以获取原始链接数据
+ * Deferred deeplink data class.
+ *
+ * When a user is redirected to the app store via a deeplink and opens the app
+ * for the first time, the original link data can be retrieved.
  */
 data class DeferredDeeplinkData(
-    /** 是否找到延迟深链 */
+    /** Whether a deferred deeplink was found. */
     val found: Boolean,
-    /** 原始链接数据 */
+    /** Original link data returned from the backend. */
     val linkData: Map<String, Any>?
 ) {
-    /** 获取原始 Deeplink ID */
+    /** Returns the original deeplink ID. */
     val deeplinkId: String?
         get() = linkData?.get("deeplink_id") as? String
 
-    /** 获取 Project ID */
+    /** Returns the project ID. */
     val projectId: String?
         get() = linkData?.get("project_id") as? String
 
-    /** 获取原始 URL */
+    /** Returns the original URL. */
     val originalUrl: String?
         get() = linkData?.get("original_url") as? String
 
-    /** 获取 UTM Source */
+    /** Returns the UTM source. */
     val utmSource: String?
         get() = linkData?.get("utm_source") as? String
 
-    /** 获取 UTM Medium */
+    /** Returns the UTM medium. */
     val utmMedium: String?
         get() = linkData?.get("utm_medium") as? String
 
-    /** 获取 UTM Campaign */
+    /** Returns the UTM campaign. */
     val utmCampaign: String?
         get() = linkData?.get("utm_campaign") as? String
 
-    /** 获取 Referer */
+    /** Returns the referer. */
     val referer: String?
         get() = linkData?.get("referer") as? String
 
-    /** 获取自定义数据 */
+    /** Returns custom data by key. */
     fun getCustomData(key: String): Any? = linkData?.get(key)
 }
 
 /**
- * Deferred Deeplink 状态管理和设备信息辅助工具
+ * Deferred deeplink state manager and device information helper.
  *
- * 指纹匹配由服务端完成（基于 IP + User-Agent），SDK 不生成也不发送指纹 ID。
+ * Fingerprint matching is performed on the server (based on IP + User-Agent);
+ * the SDK neither generates nor sends a fingerprint ID.
  */
 internal object DeviceFingerprint {
 
@@ -59,7 +61,7 @@ internal object DeviceFingerprint {
     private const val KEY_FIRST_LAUNCH_CHECKED = "first_launch_checked"
 
     /**
-     * 检查是否是首次启动（未检查过 Deferred Deeplink）
+     * Checks whether this is the first launch (deferred deeplink not checked yet).
      */
     fun isFirstLaunch(context: Context): Boolean {
         val prefs = getPrefs(context)
@@ -67,21 +69,21 @@ internal object DeviceFingerprint {
     }
 
     /**
-     * 标记已检查过首次启动
+     * Marks that the first-launch check has been performed.
      */
     fun markFirstLaunchChecked(context: Context) {
         getPrefs(context).edit().putBoolean(KEY_FIRST_LAUNCH_CHECKED, true).apply()
     }
 
     /**
-     * 重置首次启动标记（用于测试）
+     * Resets the first-launch flag (for testing).
      */
     fun resetFirstLaunch(context: Context) {
         getPrefs(context).edit().remove(KEY_FIRST_LAUNCH_CHECKED).apply()
     }
 
     /**
-     * 清除所有缓存数据（用于测试）
+     * Clears all cached data (for testing).
      */
     fun clearAll(context: Context) {
         getPrefs(context).edit().clear().apply()
@@ -92,7 +94,7 @@ internal object DeviceFingerprint {
     }
 
     /**
-     * 获取默认 User-Agent
+     * Returns the default User-Agent string.
      */
     fun getDefaultUserAgent(context: Context): String {
         return try {

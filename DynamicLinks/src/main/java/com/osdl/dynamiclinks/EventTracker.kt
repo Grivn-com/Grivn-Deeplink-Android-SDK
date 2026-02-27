@@ -11,9 +11,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * SDK 内部事件追踪器
+ * Internal SDK event tracker.
  *
- * 批量缓存事件，满 20 条或 30 秒自动 flush 到后端。
+ * Events are buffered locally and automatically flushed to the backend when
+ * either 20 events are accumulated or 30 seconds have passed.
  */
 internal class EventTracker(
     private val apiService: ApiService,

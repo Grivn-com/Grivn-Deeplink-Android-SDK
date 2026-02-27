@@ -3,27 +3,28 @@ package com.osdl.dynamiclinks
 import android.util.Log
 
 /**
- * SDK 日志级别
+ * SDK log levels.
  */
 public enum class LogLevel(internal val priority: Int) {
-    /** 详细调试信息（API 请求/响应 body、指纹详情等） */
+    /** Verbose debug information (API request/response bodies, fingerprint details, etc.). */
     DEBUG(0),
-    /** 关键流程信息（初始化、匹配结果等） */
+    /** Key flow information (initialization, matching results, etc.). */
     INFO(1),
-    /** 可恢复的异常（网络超时重试、非关键失败等） */
+    /** Recoverable issues (network timeouts with retries, non-critical failures, etc.). */
     WARN(2),
-    /** 不可恢复的错误 */
+    /** Non-recoverable errors. */
     ERROR(3),
-    /** 完全静默 */
+    /** Completely silent. */
     NONE(4)
 }
 
 /**
- * SDK 日志接口
+ * SDK logging interface.
  *
- * 开发者可实现此接口接入自己的日志系统（如 Timber、Crashlytics 等）。
+ * You can implement this interface to plug the SDK logs into your own
+ * logging system (e.g. Timber, Crashlytics, etc.).
  *
- * 使用示例:
+ * Example:
  * ```kotlin
  * DynamicLinksSDK.setLogger(object : DynamicLinksLogHandler {
  *     override fun log(level: LogLevel, tag: String, message: String, throwable: Throwable?) {
@@ -34,18 +35,18 @@ public enum class LogLevel(internal val priority: Int) {
  */
 public interface DynamicLinksLogHandler {
     /**
-     * 输出日志
+     * Outputs a log entry.
      *
-     * @param level 日志级别
-     * @param tag 日志标签（固定为 "GrivnSDK"）
-     * @param message 日志内容
-     * @param throwable 关联的异常（可选）
+     * @param level Log level.
+     * @param tag Log tag (fixed to "GrivnSDK").
+     * @param message Log message.
+     * @param throwable Optional associated exception.
      */
     fun log(level: LogLevel, tag: String, message: String, throwable: Throwable? = null)
 }
 
 /**
- * 默认日志实现，使用 Android Log
+ * Default log implementation using Android's `Log`.
  */
 internal class DefaultLogHandler : DynamicLinksLogHandler {
     override fun log(level: LogLevel, tag: String, message: String, throwable: Throwable?) {
@@ -60,10 +61,11 @@ internal class DefaultLogHandler : DynamicLinksLogHandler {
 }
 
 /**
- * SDK 内部日志工具
+ * Internal SDK logging utility.
  *
- * 生产模式（默认）完全静默。调用 `DynamicLinksSDK.setDebugMode(true)` 后
- * 以 `[GrivnSDK]` 标签输出调试信息。
+ * In production mode (default) it is completely silent. After calling
+ * `DynamicLinksSDK.setDebugMode(true)` it outputs debug information with
+ * the `[GrivnSDK]` tag.
  */
 internal object SDKLogger {
     private const val TAG = "GrivnSDK"

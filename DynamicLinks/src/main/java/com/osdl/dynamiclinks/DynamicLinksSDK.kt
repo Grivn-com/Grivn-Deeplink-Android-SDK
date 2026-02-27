@@ -20,30 +20,30 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 
 /**
- * DynamicLinks SDK 主入口
- * 
- * 使用示例：
+ * Main entry point for the DynamicLinks SDK.
+ *
+ * Usage examples:
  * ```kotlin
- * // 初始化（仅处理链接时）
+ * // Initialize (only handling links)
  * DynamicLinksSDK.init(
  *     baseUrl = "https://api.grivn.com",
  *     secretKey = "your_secret_key"
  * )
- * 
- * // 初始化（需要创建链接时，需要提供 projectId）
+ *
+ * // Initialize (also creating links, requires projectId)
  * DynamicLinksSDK.init(
  *     baseUrl = "https://api.grivn.com",
  *     secretKey = "your_secret_key",
  *     projectId = "your_project_id"
  * )
- * 
- * // 可选配置
+ *
+ * // Optional configuration
  * DynamicLinksSDK.configure(allowedHosts = listOf("acme.wayp.link"))
- * 
- * // 处理动态链接
+ *
+ * // Handle a dynamic link
  * val dynamicLink = DynamicLinksSDK.handleDynamicLink(intent)
- * 
- * // 缩短链接（需要 projectId）
+ *
+ * // Shorten a link (requires projectId)
  * val response = DynamicLinksSDK.shorten(dynamicLinkComponents)
  * ```
  */
@@ -67,7 +67,7 @@ public object DynamicLinksSDK {
     @JvmStatic
     public var analyticsEnabled: Boolean = true
     
-    // SDK 配置
+    // SDK configuration
     private var baseUrl: String = ""
     private var secretKey: String = ""
     private var projectId: String? = null
@@ -77,23 +77,23 @@ public object DynamicLinksSDK {
     // Event tracker
     private var eventTracker: EventTracker? = null
 
-    // 用于自动检查的协程 Scope
+    // Coroutine scope used for automatic checks
     private val sdkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Deferred Deeplink 回调
+    // Deferred deeplink callback
     private var deferredDeeplinkCallback: ((DeferredDeeplinkData) -> Unit)? = null
 
-    // Application Context (用于自动检查)
+    // Application context (used for automatic checks)
     private var appContext: Context? = null
 
-    // ============ 初始化 ============
+    // ============ Initialization ============
 
     /**
-     * 初始化 SDK（简单版本，不自动检查 Deferred Deeplink）
-     * 
-     * @param baseUrl 后端 API Base URL (例如 "https://api.grivn.com")
-     * @param secretKey Secret Key（通过 X-API-Key header 发送）
-     * @param projectId 项目 ID（可选，用于创建链接时指定所属项目）
+     * Initializes the SDK (simple version, without automatic deferred deeplink check).
+     *
+     * @param baseUrl Backend API base URL (e.g. "https://api.grivn.com").
+     * @param secretKey Secret key (sent via the X-API-Key header).
+     * @param projectId Optional project ID (used when creating links).
      */
     @JvmStatic
     @JvmOverloads
@@ -106,14 +106,15 @@ public object DynamicLinksSDK {
     }
     
     /**
-     * 初始化 SDK 并自动检查 Deferred Deeplink
-     * 
-     * SDK 会在首次启动时自动检查是否有延迟深链，并通过回调返回结果。
-     * 开发者无需额外调用 checkDeferredDeeplink()。
-     * 
-     * 使用示例：
+     * Initializes the SDK and automatically checks for deferred deeplinks.
+     *
+     * On first launch, the SDK will automatically check whether there is a
+     * deferred deeplink and return the result via the callback. You do not
+     * need to call `checkDeferredDeeplink()` manually.
+     *
+     * Usage example:
      * ```kotlin
-     * // 在 Application.onCreate 中调用
+     * // Call from Application.onCreate
      * DynamicLinksSDK.init(
      *     context = this,
      *     baseUrl = "https://api.grivn.com",
@@ -121,17 +122,18 @@ public object DynamicLinksSDK {
      *     projectId = "your_project_id"
      * ) { result ->
      *     if (result.found) {
-     *         // 处理延迟深链
+     *         // Handle deferred deeplink
      *         Log.d("DeferredDeeplink", "Found: ${result.originalUrl}")
      *     }
      * }
      * ```
-     * 
-     * @param context Application Context（用于自动检查 Deferred Deeplink）
-     * @param baseUrl 后端 API Base URL
-     * @param secretKey Secret Key
-     * @param projectId 项目 ID（可选）
-     * @param onDeferredDeeplink 延迟深链回调（可选，不传则静默上报安装）
+     *
+     * @param context Application context (used for automatic deferred deeplink check).
+     * @param baseUrl Backend API base URL.
+     * @param secretKey Secret key.
+     * @param projectId Optional project ID.
+     * @param onDeferredDeeplink Optional deferred deeplink callback; if null,
+     *   the SDK will silently report the install.
      */
     @JvmStatic
     @JvmOverloads
@@ -194,7 +196,7 @@ public object DynamicLinksSDK {
 
         SDKLogger.info("SDK initialized — baseUrl=${this.baseUrl}, projectId=${projectId ?: "(none)"}, analyticsEnabled=$analyticsEnabled")
 
-        // 自动检查 Deferred Deeplink
+        // Automatically check deferred deeplink
         context?.let { ctx ->
             sdkScope.launch {
                 try {
@@ -208,9 +210,9 @@ public object DynamicLinksSDK {
     }
     
     /**
-     * 设置项目 ID（可在 init() 后单独设置）
-     * 
-     * @param projectId 项目 ID（用于创建链接）
+     * Sets the project ID (can be called after `init()`).
+     *
+     * @param projectId Project ID used when creating links.
      */
     @JvmStatic
     public fun setProjectId(projectId: String): DynamicLinksSDK {
@@ -219,7 +221,7 @@ public object DynamicLinksSDK {
     }
 
     /**
-     * 检查是否已初始化
+     * Returns whether the SDK has been initialized.
      */
     @JvmStatic
     public fun isInitialized(): Boolean = isInitialized.get()
@@ -238,12 +240,13 @@ public object DynamicLinksSDK {
     }
 
     /**
-     * 启用或关闭调试模式
+     * Enables or disables debug mode.
      *
-     * 开启后，SDK 会以 `GrivnSDK` 标签输出 DEBUG 级别的日志（初始化、网络请求、
-     * Deferred Deeplink 检查等）。关闭后完全静默（NONE）。
+     * When enabled, the SDK outputs DEBUG-level logs with the `GrivnSDK` tag
+     * (initialization, network requests, deferred deeplink checks, etc.).
+     * When disabled, logging is completely silent (NONE).
      *
-     * @param enabled true 为开启（DEBUG 级别），false 为关闭（NONE）
+     * @param enabled true to enable DEBUG level, false for NONE.
      */
     @JvmStatic
     public fun setDebugMode(enabled: Boolean): DynamicLinksSDK {
@@ -252,11 +255,12 @@ public object DynamicLinksSDK {
     }
 
     /**
-     * 设置日志级别
+     * Sets the log level.
      *
-     * 可选级别：DEBUG、INFO、WARN、ERROR、NONE（默认 NONE，完全静默）。
+     * Available levels: DEBUG, INFO, WARN, ERROR, NONE (default is NONE,
+     * completely silent).
      *
-     * @param level 日志级别
+     * @param level Log level.
      */
     @JvmStatic
     public fun setLogLevel(level: LogLevel): DynamicLinksSDK {
@@ -265,12 +269,12 @@ public object DynamicLinksSDK {
     }
 
     /**
-     * 注册自定义日志处理器
+     * Registers a custom log handler.
      *
-     * 开发者可实现 [DynamicLinksLogHandler] 接口，将 SDK 日志接入 Timber、
-     * Crashlytics 等外部日志系统。
+     * Implement [DynamicLinksLogHandler] to forward SDK logs to Timber,
+     * Crashlytics, or any other logging system.
      *
-     * @param handler 自定义日志处理器
+     * @param handler Custom log handler.
      */
     @JvmStatic
     public fun setLogger(handler: DynamicLinksLogHandler): DynamicLinksSDK {
@@ -279,8 +283,9 @@ public object DynamicLinksSDK {
     }
 
     /**
-     * 设置是否信任所有证书（仅开发环境使用）
-     * 必须在 init() 之前调用
+     * Controls whether to trust all SSL certificates (development only).
+     *
+     * Must be called before `init()`.
      */
     @JvmStatic
     public fun setTrustAllCerts(enabled: Boolean): DynamicLinksSDK {
@@ -305,7 +310,7 @@ public object DynamicLinksSDK {
         }
     }
 
-    // ============ 处理动态链接 ============
+    // ============ Dynamic link handling ============
 
     /**
      * Handles the Dynamic Link passed within the intent and returns a DynamicLink object.
@@ -370,13 +375,13 @@ public object DynamicLinksSDK {
         }
     }
 
-    // ============ 缩短链接 ============
+    // ============ Shortening links ============
 
     /**
      * Shortens a Dynamic Link and returns the response containing the shortened URL.
      *
      * @param dynamicLink The DynamicLinkComponents that will be used to build the URI.
-     * @param projectId 项目 ID（可选，如果未在 init() 或 setProjectId() 中设置，则必须在此传入）
+     * @param projectId Optional project ID. If not set via init() or setProjectId(), it must be passed here.
      * @return A DynamicLinkShortenResponse containing the shortened link.
      * @throws DynamicLinksSDKError.NotInitialized if the SDK is not initialized.
      * @throws DynamicLinksSDKError.ProjectIdNotSet if projectId is not configured.
@@ -407,7 +412,7 @@ public object DynamicLinksSDK {
         }
     }
 
-    // ============ 验证链接 ============
+    // ============ Link validation ============
 
     /**
      * Checks if the given intent contains a valid Dynamic Link.
@@ -434,32 +439,34 @@ public object DynamicLinksSDK {
         return allowedHosts.contains(host) && pathMatches
     }
 
-    // ============ Deferred Deeplink ============
+    // ============ Deferred deeplink ============
 
     /**
-     * 检查并获取延迟深链（首次安装后的 Deeplink）
-     * 
-     * 当用户通过 Deeplink 跳转到应用商店下载 App 后，首次打开时调用此方法获取原始链接数据。
-     * 此方法只会在首次启动时返回数据，后续调用将返回 found=false。
-     * 
-     * 使用示例：
+     * Checks for and retrieves a deferred deeplink (post-install deeplink).
+     *
+     * When a user goes to the app store via a deeplink and installs the app,
+     * call this method on first launch to obtain the original link data.
+     * This method only returns data on the first launch; subsequent calls
+     * will return `found = false`.
+     *
+     * Usage example:
      * ```kotlin
-     * // 在 Activity.onCreate 或 Application.onCreate 中调用
+     * // Call from Activity.onCreate or Application.onCreate
      * lifecycleScope.launch {
      *     val result = DynamicLinksSDK.checkDeferredDeeplink(context)
      *     if (result.found) {
-     *         // 处理延迟深链
+     *         // Handle deferred deeplink
      *         val deeplinkId = result.deeplinkId
      *         val utmSource = result.utmSource
-     *         // 导航到目标页面...
+     *         // Navigate to the target screen...
      *     }
      * }
      * ```
-     * 
-     * @param context Android Context
-     * @param forceCheck 是否强制检查（忽略首次启动标记，用于测试）
-     * @return DeferredDeeplinkData 包含是否找到延迟深链及链接数据
-     * @throws DynamicLinksSDKError.NotInitialized 如果 SDK 未初始化
+     *
+     * @param context Android context.
+     * @param forceCheck Whether to force a check (ignores the first-launch flag, useful for testing).
+     * @return DeferredDeeplinkData containing whether a deferred deeplink was found and its data.
+     * @throws DynamicLinksSDKError.NotInitialized if the SDK has not been initialized.
      */
     @JvmStatic
     @JvmOverloads
@@ -474,7 +481,7 @@ public object DynamicLinksSDK {
             return DeferredDeeplinkData(found = false, linkData = null)
         }
 
-        // 检查是否是首次启动
+        // Check whether this is the first launch
         if (!forceCheck && !DeviceFingerprint.isFirstLaunch(context)) {
             return DeferredDeeplinkData(found = false, linkData = null)
         }
@@ -483,12 +490,12 @@ public object DynamicLinksSDK {
 
         return withContext(Dispatchers.IO) {
             try {
-                // 标记已检查
+                // Mark that the first-launch check has been performed
                 DeviceFingerprint.markFirstLaunchChecked(context)
 
                 val userAgent = DeviceFingerprint.getDefaultUserAgent(context)
 
-                // Priority 1: Try Install Referrer API (>95% accuracy)
+                // Priority 1: try the Install Referrer API (>95% accuracy).
                 SDKLogger.debug("Trying Install Referrer API first...")
                 val referrerResult = tryInstallReferrer(context, userAgent)
                 if (referrerResult != null && referrerResult.found) {
@@ -498,7 +505,7 @@ public object DynamicLinksSDK {
                     return@withContext referrerResult
                 }
 
-                // Priority 2: Fall back to fingerprint matching (50-70% accuracy)
+                // Priority 2: fall back to fingerprint matching (50-70% accuracy).
                 val metrics = context.resources.displayMetrics
                 val screenResolution = "${metrics.widthPixels}x${metrics.heightPixels}"
                 val timezone = TimeZone.getDefault().id
@@ -541,8 +548,10 @@ public object DynamicLinksSDK {
     }
 
     /**
-     * 尝试通过 Install Referrer API 获取延迟深链
-     * 返回 null 表示 Install Referrer 不可用或未包含 deeplink_id
+     * Tries to obtain a deferred deeplink via the Install Referrer API.
+     *
+     * Returns null if Install Referrer is not available or does not contain
+     * a `deeplink_id`.
      */
     private suspend fun tryInstallReferrer(context: Context, userAgent: String): DeferredDeeplinkData? {
         val referrerString = readInstallReferrer(context)
@@ -588,8 +597,9 @@ public object DynamicLinksSDK {
     }
 
     /**
-     * 读取 Google Play Install Referrer
-     * @return referrer 字符串，如果不可用返回 null
+     * Reads the Google Play Install Referrer.
+     *
+     * @return The referrer string, or null if not available.
      */
     private suspend fun readInstallReferrer(context: Context): String? {
         return try {
@@ -635,9 +645,9 @@ public object DynamicLinksSDK {
     }
     
     /**
-     * 手动确认安装（通常由 checkDeferredDeeplink 自动调用）
-     * 
-     * @param context Android Context
+     * Manually confirms an install (normally called automatically from `checkDeferredDeeplink`).
+     *
+     * @param context Android context.
      */
     @JvmStatic
     public suspend fun confirmInstall(context: Context) {
@@ -677,9 +687,9 @@ public object DynamicLinksSDK {
     }
     
     /**
-     * 重置首次启动状态（用于测试）
+     * Resets the first-launch state (for testing).
      *
-     * @param context Android Context
+     * @param context Android context.
      */
     @JvmStatic
     public fun resetDeferredDeeplinkState(context: Context) {

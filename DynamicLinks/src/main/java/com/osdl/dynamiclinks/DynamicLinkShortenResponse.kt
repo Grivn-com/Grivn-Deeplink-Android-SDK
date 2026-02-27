@@ -5,7 +5,7 @@ import androidx.core.net.toUri
 import com.google.gson.annotations.SerializedName
 
 /**
- * 缩短链接的响应
+ * Response returned when shortening a dynamic link.
  */
 public data class DynamicLinkShortenResponse(
     @SerializedName("id") val id: String,
@@ -14,7 +14,7 @@ public data class DynamicLinkShortenResponse(
     @SerializedName("name") val name: String? = null,
     val warnings: List<Warning> = emptyList()
 ) {
-    /** 短链接 URI */
+    /** Short link as a `Uri`. */
     val shortLink: Uri get() = shortLinkString.toUri()
     
     public data class Warning(
