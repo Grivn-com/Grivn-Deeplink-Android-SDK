@@ -23,6 +23,15 @@ public sealed class DynamicLinksSDKError protected constructor(
         DynamicLinksSDKError("Server error ($code): $message")
     
     /** Failed to parse the response. */
-    public class ParseError(message: String, cause: Throwable?) : 
+    public class ParseError(message: String, cause: Throwable?) :
         DynamicLinksSDKError(message, cause)
+
+    /** The app version is too old; the user must update. */
+    public class AppUpdateRequired(
+        public val currentVersionCode: Long,
+        public val requiredVersionCode: Int,
+        public val packageName: String?
+    ) : DynamicLinksSDKError(
+        "App update required: current versionCode $currentVersionCode is below the minimum required $requiredVersionCode"
+    )
 }

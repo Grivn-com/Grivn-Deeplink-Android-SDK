@@ -352,6 +352,28 @@ public object DynamicLinksSDK {
                     val exchangeResponse = response.getOrNull()!!
                     SDKLogger.info("exchangeShortLink succeeded — longLink=${exchangeResponse.longLink}")
 
+                    // Check minimum app version
+                    val requiredVersion = exchangeResponse.amv?.toIntOrNull()
+                    if (requiredVersion != null) {
+                        val ctx = appContext
+                        if (ctx != null) {
+                            val currentVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                ctx.packageManager.getPackageInfo(ctx.packageName, 0).longVersionCode
+                            } else {
+                                @Suppress("DEPRECATION")
+                                ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionCode.toLong()
+                            }
+                            if (currentVersionCode < requiredVersion) {
+                                SDKLogger.warn("App versionCode $currentVersionCode < required $requiredVersion")
+                                throw DynamicLinksSDKError.AppUpdateRequired(
+                                    currentVersionCode = currentVersionCode,
+                                    requiredVersionCode = requiredVersion,
+                                    packageName = exchangeResponse.apn
+                                )
+                            }
+                        }
+                    }
+
                     // Auto-event: deeplink_first_open or deeplink_reopen
                     if (analyticsEnabled) {
                         val prefs = appContext?.getSharedPreferences("grivn_events", android.content.Context.MODE_PRIVATE)
