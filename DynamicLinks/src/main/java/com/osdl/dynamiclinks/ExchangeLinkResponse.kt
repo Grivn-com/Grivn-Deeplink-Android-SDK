@@ -15,14 +15,10 @@ public data class ExchangeLinkResponse(
     val apn: String? = null,
     val afl: String? = null,
     val amv: String? = null,
-    val ibi: String? = null,
     val ifl: String? = null,
-    val ius: String? = null,
     val ipfl: String? = null,
-    val ipbi: String? = null,
     val isi: String? = null,
     val imv: String? = null,
-    val efr: String? = null,
     val ofl: String? = null,
     val st: String? = null,
     val sd: String? = null,
@@ -44,20 +40,16 @@ public data class ExchangeLinkResponse(
         get() {
             val baseLink = link ?: throw IllegalStateException("Missing 'link' parameter")
             val builder = Uri.parse("https://dynamiclinks.local").buildUpon()
-            
+
             // Append all non-empty parameters
             builder.appendQueryParameter("link", baseLink)
             apn?.let { builder.appendQueryParameter("apn", it) }
             afl?.let { builder.appendQueryParameter("afl", it) }
             amv?.let { builder.appendQueryParameter("amv", it) }
-            ibi?.let { builder.appendQueryParameter("ibi", it) }
             ifl?.let { builder.appendQueryParameter("ifl", it) }
-            ius?.let { builder.appendQueryParameter("ius", it) }
             ipfl?.let { builder.appendQueryParameter("ipfl", it) }
-            ipbi?.let { builder.appendQueryParameter("ipbi", it) }
             isi?.let { builder.appendQueryParameter("isi", it) }
             imv?.let { builder.appendQueryParameter("imv", it) }
-            efr?.let { builder.appendQueryParameter("efr", it) }
             ofl?.let { builder.appendQueryParameter("ofl", it) }
             st?.let { builder.appendQueryParameter("st", it) }
             sd?.let { builder.appendQueryParameter("sd", it) }
@@ -71,7 +63,7 @@ public data class ExchangeLinkResponse(
             ct?.let { builder.appendQueryParameter("ct", it) }
             mt?.let { builder.appendQueryParameter("mt", it) }
             pt?.let { builder.appendQueryParameter("pt", it) }
-            
+
             return builder.build()
         }
 }

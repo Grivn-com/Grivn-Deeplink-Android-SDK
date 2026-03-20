@@ -304,14 +304,10 @@ internal data class DeeplinkCreateRequest(
     @SerializedName("afl") val afl: String? = null,
     @SerializedName("amv") val amv: String? = null,
     // iOS Parameters
-    @SerializedName("ibi") val ibi: String? = null,
     @SerializedName("ifl") val ifl: String? = null,
-    @SerializedName("ius") val ius: String? = null,
     @SerializedName("ipfl") val ipfl: String? = null,
-    @SerializedName("ipbi") val ipbi: String? = null,
     @SerializedName("isi") val isi: String? = null,
     @SerializedName("imv") val imv: String? = null,
-    @SerializedName("efr") val efr: Boolean? = null,
     // Other Platform
     @SerializedName("ofl") val ofl: String? = null,
     // Social Meta Tags
@@ -432,7 +428,6 @@ internal data class DeeplinkResponse(
     @SerializedName("apn") val apn: String?,
     @SerializedName("afl") val afl: String?,
     @SerializedName("amv") val amv: String?,
-    @SerializedName("ibi") val ibi: String?,
     @SerializedName("ifl") val ifl: String?,
     @SerializedName("isi") val isi: String?,
     @SerializedName("imv") val imv: String?,
