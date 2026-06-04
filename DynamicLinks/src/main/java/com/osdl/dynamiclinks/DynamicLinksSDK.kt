@@ -192,9 +192,19 @@ public object DynamicLinksSDK {
                 sdkVersion = sdkVersion
             )
             eventTracker?.start()
+        } else if (analyticsEnabled && projectId != null && context == null) {
+            // Common foot-gun: the context-less init() overload silently leaves
+            // event tracking off because EventTracker needs a Context. Warn loudly
+            // so analytics doesn't appear "broken" with no signal — use
+            // init(context, baseUrl, secretKey, projectId, ...) to enable it.
+            SDKLogger.warn(
+                "Analytics is NOT active: init() was called without a Context. " +
+                "Event tracking and automatic deferred-deeplink check are disabled. " +
+                "Use init(context, baseUrl, secretKey, projectId, ...) to enable analytics."
+            )
         }
 
-        SDKLogger.info("SDK initialized — baseUrl=${this.baseUrl}, projectId=${projectId ?: "(none)"}, analyticsEnabled=$analyticsEnabled")
+        SDKLogger.info("SDK initialized — baseUrl=${this.baseUrl}, projectId=${projectId ?: "(none)"}, analyticsEnabled=$analyticsEnabled, analyticsActive=${eventTracker != null}")
 
         // Automatically check deferred deeplink
         context?.let { ctx ->

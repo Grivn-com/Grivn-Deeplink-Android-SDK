@@ -25,14 +25,21 @@ class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         
-        // Initialize SDK
+        // Initialize SDK.
+        // Pass `this` (the Application Context) — it is REQUIRED for event
+        // tracking / analytics and the automatic deferred-deeplink check. The
+        // context-less init(baseUrl, secretKey, projectId) overload exists for
+        // link-only use, but it silently leaves analytics OFF.
         DynamicLinksSDK.init(
+            context = this,                        // REQUIRED to enable analytics
             baseUrl = "https://api.grivn.com",    // Backend API URL
             secretKey = "your_secret_key",         // X-API-Key for authentication
             projectId = "your_project_id"          // Project ID for creating links
         )
         
-        // Configure allowed hosts for link validation
+        // Configure allowed hosts for link validation. These MUST match your
+        // project's short-link domains (Grivn dashboard) or every incoming link
+        // is rejected as invalid.
         DynamicLinksSDK.configure(
             allowedHosts = listOf("acme.wayp.link", "preview.acme.wayp.link")
         )
