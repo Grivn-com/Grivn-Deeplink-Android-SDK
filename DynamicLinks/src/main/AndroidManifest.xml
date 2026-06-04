@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- WF-2 #13: the SDK makes HTTPS calls to the Grivn backend. Declaring
+         INTERNET here means apps consuming the SDK get it via manifest merge
+         and don't silently fail on a minimal app that forgot to add it. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
 </manifest>

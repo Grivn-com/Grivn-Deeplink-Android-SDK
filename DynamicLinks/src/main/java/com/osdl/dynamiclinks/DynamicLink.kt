@@ -39,8 +39,10 @@ public class DynamicLink public constructor(longLink: Uri) {
         val allParams: Map<String, String?> =
             longLink.queryParameterNames.associateWith { longLink.getQueryParameter(it) }
         val rawLink = longLink.getQueryParameter("link")
+        // WF-2 #22: surface a typed SDK error instead of a raw
+        // IllegalArgumentException that escapes the DynamicLinksSDKError hierarchy.
         url = rawLink?.toUri()
-            ?: throw IllegalArgumentException("Missing or invalid 'link' parameter in the URL")
+            ?: throw DynamicLinksSDKError.InvalidDynamicLink
         val amv = longLink.getQueryParameter("amv")
         minimumAppVersion = amv?.toIntOrNull()
         utmParameters = allParams.filterKeys { it.startsWith("utm_") }
