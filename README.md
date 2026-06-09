@@ -4,13 +4,36 @@ Android SDK for handling Dynamic Links with Grivn backend.
 
 ## Installation
 
-Add the dependency to your `build.gradle.kts`:
+> **Note:** the public distribution channel is being finalized (tracked in Plane
+> GRIVN-17). Today the artifact is published to GitHub Packages under
+> `com.osdl:dynamiclinks`; the coordinate/version below match what the build
+> actually produces (see `DynamicLinks/build.gradle.kts`).
+
+The artifact lives on GitHub Packages, so add the repository (with credentials)
+and the dependency:
 
 ```kotlin
-dependencies {
-    implementation("com.osdl:dynamiclinks:1.0.0")
+// settings.gradle.kts (or root build.gradle.kts) — repositories block
+repositories {
+    maven {
+        url = uri("https://maven.pkg.github.com/piwenzi/DynamicLinks-Android")
+        credentials {
+            username = providers.gradleProperty("gpr.user").orNull ?: System.getenv("GITHUB_ACTOR")
+            password = providers.gradleProperty("gpr.token").orNull ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
 }
 ```
+
+```kotlin
+// module build.gradle.kts — use the latest released tag (e.g. 1.1.0)
+dependencies {
+    implementation("com.osdl:dynamiclinks:1.1.0")
+}
+```
+
+The SDK declares `android.permission.INTERNET` itself; it merges into your app
+via manifest merging, so you don't need to add it manually for the SDK to work.
 
 ## Quick Start
 
@@ -48,6 +71,15 @@ class MyApplication : Application() {
 ```
 
 ### 2. Handle Dynamic Links
+
+> **Required for inbound links to reach your app:** declare an App Links
+> `<intent-filter android:autoVerify="true">` for your short-link host in your
+> Activity's `AndroidManifest.xml` (scheme `https`, host
+> `YOUR_PROJECT_ID.grivn.com`). Without it Android never delivers the link to
+> the SDK and `handleDynamicLink` is never reached. The backend auto-serves
+> `/.well-known/assetlinks.json` for verification. Full setup +
+> assetlinks/AASA details: `docs/sdk/android-guide.md` (and the `app-android`
+> demo's manifest).
 
 Handle incoming dynamic links in your Activity:
 
@@ -103,9 +135,12 @@ import com.osdl.dynamiclinks.*
 
 lifecycleScope.launch {
     try {
+        // Note: the short link is built and hosted server-side. domainUriPrefix
+        // is unused by shorten() (the returned response.shortLink uses your
+        // project's configured domain) — it's kept only for source compatibility.
         val components = DynamicLinkComponents(
             link = Uri.parse("https://myapp.com/product/123"),
-            domainUriPrefix = "https://acme.wayp.link",
+            domainUriPrefix = "https://YOUR_PROJECT_ID.grivn.com",
             androidParameters = AndroidParameters(
                 packageName = "com.myapp.android",
                 fallbackURL = "https://play.google.com/store/apps/details?id=com.myapp.android",

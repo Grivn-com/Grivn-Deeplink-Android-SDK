@@ -40,7 +40,16 @@ public data class DynamicLinkComponents(
      *
      * @return The constructed URI for the Dynamic Link, including all the query parameters.
      * @throws IllegalArgumentException if the domainUriPrefix does not start with "https://".
+     *
+     * WF-2 #18: this is dead/misleading API. The SDK does NOT build links
+     * client-side — `shorten()` sends the components to the backend, which
+     * constructs and returns the short link, and `domainUriPrefix` is ignored.
+     * Kept only for source compatibility.
      */
+    @Deprecated(
+        "Links are built server-side by shorten(); buildUri()/domainUriPrefix are unused. This will be removed in a future release.",
+        level = DeprecationLevel.WARNING
+    )
     @Throws(IllegalArgumentException::class)
     public fun buildUri(): Uri? {
         if (!domainUriPrefix.startsWith("https://")) {

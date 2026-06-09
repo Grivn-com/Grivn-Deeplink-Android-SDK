@@ -243,7 +243,10 @@ internal class ApiService(
                 SDKLogger.debug("← ${response.code} ($bodyLen bytes)")
 
                 if (!response.isSuccessful) {
-                    val err = DynamicLinksSDKError.NetworkError("Server error: ${response.code}", null)
+                    // Preserve the HTTP status so callers can tell auth (401/403)
+                    // and validation (4xx) apart from a transport blip (WF-2 #8).
+                    // NetworkError stays reserved for actual I/O failures (catch below).
+                    val err = DynamicLinksSDKError.ServerError("HTTP ${response.code}", response.code)
                     SDKLogger.error("HTTP error ${response.code}", err)
                     return@use ApiResponse.error(err)
                 }
