@@ -4,31 +4,22 @@ Android SDK for handling Dynamic Links with Grivn backend.
 
 ## Installation
 
-> **Note:** the public distribution channel is being finalized (tracked in Plane
-> GRIVN-17). Today the artifact is published to GitHub Packages under
-> `com.osdl:dynamiclinks`; the coordinate/version below match what the build
-> actually produces (see `DynamicLinks/build.gradle.kts`).
-
-The artifact lives on GitHub Packages, so add the repository (with credentials)
-and the dependency:
+The SDK is distributed via [JitPack](https://jitpack.io) — public, no
+credentials required. Add the JitPack repository, then the dependency:
 
 ```kotlin
 // settings.gradle.kts (or root build.gradle.kts) — repositories block
-repositories {
-    maven {
-        url = uri("https://maven.pkg.github.com/piwenzi/DynamicLinks-Android")
-        credentials {
-            username = providers.gradleProperty("gpr.user").orNull ?: System.getenv("GITHUB_ACTOR")
-            password = providers.gradleProperty("gpr.token").orNull ?: System.getenv("GITHUB_TOKEN")
-        }
+dependencyResolutionManagement {
+    repositories {
+        maven { url = uri("https://jitpack.io") }
     }
 }
 ```
 
 ```kotlin
-// module build.gradle.kts — use the latest released tag (e.g. 1.1.0)
+// module build.gradle.kts
 dependencies {
-    implementation("com.osdl:dynamiclinks:1.1.0")
+    implementation("com.github.Grivn-com:Grivn-Deeplink-Android-SDK:1.2.0")
 }
 ```
 
