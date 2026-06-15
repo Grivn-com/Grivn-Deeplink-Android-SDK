@@ -2,6 +2,7 @@ package com.osdl.dynamiclinks
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.os.Build
 import android.os.RemoteException
@@ -163,11 +164,19 @@ public object DynamicLinksSDK {
         this.appContext = context
         this.deferredDeeplinkCallback = callback
 
+        // Hard safety gate: trustAllCerts disables TLS validation and must NEVER
+        // take effect in a production app, even if an integrator left it on.
+        // Honor it only when the host app is debuggable; otherwise force false.
+        val effectiveTrustAllCerts = trustAllCerts && isAppDebuggable(context)
+        if (trustAllCerts && !effectiveTrustAllCerts) {
+            SDKLogger.warn("setTrustAllCerts(true) ignored: host app is not debuggable (TLS validation stays ON)")
+        }
+
         apiService = ApiService(
             baseUrl = this.baseUrl,
             secretKey = this.secretKey,
             timeout = 30,
-            trustAllCerts = trustAllCerts
+            trustAllCerts = effectiveTrustAllCerts
         )
 
         isInitialized.set(true)
@@ -296,11 +305,24 @@ public object DynamicLinksSDK {
      * Controls whether to trust all SSL certificates (development only).
      *
      * Must be called before `init()`.
+     *
+     * SECURITY: this disables TLS certificate validation. It is honored ONLY when
+     * the host application is debuggable; in a release build the request is
+     * ignored and TLS validation stays on, so it can never weaken a shipped app.
      */
     @JvmStatic
     public fun setTrustAllCerts(enabled: Boolean): DynamicLinksSDK {
         trustAllCerts = enabled
         return this
+    }
+
+    /**
+     * True only when the host app is built debuggable (android:debuggable). Used
+     * to hard-gate insecure-SSL so it cannot take effect in production.
+     */
+    private fun isAppDebuggable(context: Context?): Boolean {
+        val ctx = context ?: return false
+        return (ctx.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
 
     /**
