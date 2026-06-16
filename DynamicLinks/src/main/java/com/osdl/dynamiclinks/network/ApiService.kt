@@ -111,7 +111,9 @@ internal class ApiService(
             // iTunes Connect
             at = components.iTunesConnectParameters?.affiliateToken,
             ct = components.iTunesConnectParameters?.campaignToken,
-            pt = components.iTunesConnectParameters?.providerToken
+            pt = components.iTunesConnectParameters?.providerToken,
+            // Path mode (GRIVN-2): null => backend default (UNGUESSABLE)
+            pathMode = components.options?.pathLength?.toPathMode()
         )
         
         return post(url, body)
@@ -327,7 +329,9 @@ internal data class DeeplinkCreateRequest(
     @SerializedName("at") val at: String? = null,
     @SerializedName("ct") val ct: String? = null,
     @SerializedName("mt") val mt: String? = null,
-    @SerializedName("pt") val pt: String? = null
+    @SerializedName("pt") val pt: String? = null,
+    // Path mode (GRIVN-2): "SHORT" | "UNGUESSABLE"; null => backend default
+    @SerializedName("pathMode") val pathMode: String? = null
 )
 
 /**

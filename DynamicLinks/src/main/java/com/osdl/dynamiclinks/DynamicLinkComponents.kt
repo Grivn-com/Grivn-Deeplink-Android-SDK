@@ -19,6 +19,7 @@ import androidx.core.net.toUri
  * @property socialMetaTagParameters Parameters for social media meta tags associated with the link.
  * @property otherPlatformParameters Parameters for other platforms supported by the Dynamic Link.
  * @property analyticsParameters Parameters related to analytics for tracking the Dynamic Link.
+ * @property options Link options (path mode). `null` lets the backend default apply (UNGUESSABLE).
  */
 public data class DynamicLinkComponents(
     public val link: Uri,
@@ -28,7 +29,8 @@ public data class DynamicLinkComponents(
     public val iTunesConnectParameters: ItunesConnectAnalyticsParameters? = null,
     public val socialMetaTagParameters: SocialMetaTagParameters? = null,
     public val otherPlatformParameters: OtherPlatformParameters? = null,
-    public val analyticsParameters: AnalyticsParameters? = null
+    public val analyticsParameters: AnalyticsParameters? = null,
+    public val options: DynamicLinkOptionsParameters? = null
 ) {
 
     /**
@@ -216,4 +218,34 @@ public data class SocialMetaTagParameters(
             descriptionText?.let { "sd" to it },
             imageURL?.let { "si" to it }
         ).toMap()
+}
+
+/**
+ * Options for a Dynamic Link, currently the path mode (GRIVN-2).
+ *
+ * The value is sent to the backend as the `pathMode` field of the create
+ * request (NOT a query parameter on the link); the backend mints the short code
+ * accordingly. Omit (leave `null` on the component) to take the backend default
+ * (UNGUESSABLE).
+ *
+ * @property pathLength The desired path mode. Default `UNGUESSABLE`.
+ */
+public data class DynamicLinkOptionsParameters(
+    public val pathLength: DynamicLinkPathLength = DynamicLinkPathLength.UNGUESSABLE
+)
+
+/**
+ * The short-code generation mode for a Dynamic Link.
+ *
+ * - `UNGUESSABLE`: a long, always-unique code that is hard to enumerate —
+ *   for auth / per-user links. Backend default.
+ * - `SHORT`: a short, deduped code (creating again with identical parameters
+ *   returns the same code) — for shareable, non-user-specific content.
+ */
+public enum class DynamicLinkPathLength {
+    UNGUESSABLE,
+    SHORT;
+
+    /** The wire value sent as `pathMode` in the create request. */
+    public fun toPathMode(): String = name
 }
