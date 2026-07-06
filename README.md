@@ -19,7 +19,7 @@ dependencyResolutionManagement {
 ```kotlin
 // module build.gradle.kts
 dependencies {
-    implementation("com.github.Grivn-com:Grivn-Deeplink-Android-SDK:1.2.0")
+    implementation("com.github.Grivn-com:Grivn-Deeplink-Android-SDK:1.3.0")
 }
 ```
 
@@ -217,6 +217,9 @@ try {
         is DynamicLinksSDKError.InvalidDynamicLink -> {
             // Link is not a valid dynamic link
         }
+        is DynamicLinksSDKError.ProjectIdNotSet -> {
+            // Project ID missing: set it via init(), setProjectId(), or shorten(projectId)
+        }
         is DynamicLinksSDKError.NetworkError -> {
             // Network request failed
         }
@@ -225,6 +228,10 @@ try {
         }
         is DynamicLinksSDKError.ParseError -> {
             // Failed to parse server response
+        }
+        is DynamicLinksSDKError.AppUpdateRequired -> {
+            // App version below the link's minimum (amv): prompt the user to update
+            // (see e.currentVersionCode / e.requiredVersionCode / e.packageName)
         }
     }
 }
