@@ -55,7 +55,7 @@ class MyApplication : Application() {
         // project's short-link domains (Grivn dashboard) or every incoming link
         // is rejected as invalid.
         DynamicLinksSDK.configure(
-            allowedHosts = listOf("acme.wayp.link", "preview.acme.wayp.link")
+            allowedHosts = listOf("YOUR_PROJECT_ID.grivn.com")
         )
     }
 }
@@ -68,9 +68,8 @@ class MyApplication : Application() {
 > Activity's `AndroidManifest.xml` (scheme `https`, host
 > `YOUR_PROJECT_ID.grivn.com`). Without it Android never delivers the link to
 > the SDK and `handleDynamicLink` is never reached. The backend auto-serves
-> `/.well-known/assetlinks.json` for verification. Full setup +
-> assetlinks/AASA details: `docs/sdk/android-guide.md` (and the `app-android`
-> demo's manifest).
+> `/.well-known/assetlinks.json` for verification. Full setup with copy-paste
+> examples: **Developer Tools → SDK Docs** in your Grivn dashboard.
 
 Handle incoming dynamic links in your Activity:
 
@@ -117,7 +116,47 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
-### 3. Create (Shorten) Dynamic Links
+### 3. Handle Deferred Deep Links
+
+When someone taps your link before the app is installed, the SDK can hand you
+that link on the first launch after install. On Android it reads the Play
+Install Referrer first and falls back to matching on network and device
+signals. Pass `onDeferredDeeplink` to `init`: the SDK checks once, on first
+launch, and calls you back **on a background thread**, so switch to the main
+thread before touching UI.
+
+```kotlin
+DynamicLinksSDK.init(
+    context = this,
+    baseUrl = "https://api.grivn.com",
+    secretKey = "your_secret_key",
+    projectId = "your_project_id",
+    onDeferredDeeplink = { result ->
+        if (result.found) {
+            // Background thread: keep the link, then route to it from your first Activity.
+            Log.d("DynamicLinks", "Deferred deep link: ${result.originalUrl}, utm_source: ${result.utmSource}")
+        }
+    }
+)
+```
+
+`init(context, ...)` always runs this check on first launch, with or without a
+callback, so the callback is how you receive the result. Calling
+`checkDeferredDeeplink(context)` yourself afterwards returns `found == false`,
+because the first launch has already been checked. To repeat the lookup while
+testing, force it:
+
+```kotlin
+// Testing only: repeat the lookup on a later launch
+lifecycleScope.launch {
+    val result = DynamicLinksSDK.checkDeferredDeeplink(applicationContext, forceCheck = true)
+}
+```
+
+The context-less `init(baseUrl, secretKey, projectId)` skips this check
+entirely, and so does `DynamicLinksSDK.setAnalyticsEnabled(false)`.
+
+### 4. Create (Shorten) Dynamic Links
 
 Create a short dynamic link from components:
 
@@ -171,7 +210,9 @@ lifecycleScope.launch {
 
 | Method | Description |
 |--------|-------------|
-| `init(baseUrl, secretKey, projectId)` | Initialize the SDK with backend credentials |
+| `init(context, baseUrl, secretKey, projectId, onDeferredDeeplink)` | Initialize the SDK; runs the deferred deep link check on first launch and enables analytics |
+| `init(baseUrl, secretKey, projectId)` | Link handling only: no analytics, no deferred check |
+| `checkDeferredDeeplink(context, forceCheck)` | Repeat the deferred lookup (testing); `init(context, ...)` already checks on first launch |
 | `configure(allowedHosts)` | Set allowed hosts for link validation |
 | `setTrustAllCerts(enabled)` | Trust all SSL certificates (dev only) |
 | `handleDynamicLink(intent/uri)` | Parse a dynamic link and return `DynamicLink` |
