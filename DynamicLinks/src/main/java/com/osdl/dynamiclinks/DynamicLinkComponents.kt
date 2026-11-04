@@ -87,8 +87,9 @@ public data class DynamicLinkComponents(
  * including the package name, a fallback URL, and the minimum app version required.
  *
  * @property packageName The package name of the Android app associated with the link.
- * @property fallbackURL The URL to redirect to if the app is not installed on the Android device.
- * By default the user will be taken to your apps Google Play Store listing
+ * @property fallbackURL A web page to open instead of Google Play when the app is not installed.
+ * Users sent there get no deferred deep link. By default (null) the user is taken to your
+ * app's Google Play listing and the app receives the link on first launch.
  * @property minimumVersion The minimum version of the app required to open the link.
  */
 public data class AndroidParameters(
@@ -139,10 +140,10 @@ public data class AnalyticsParameters(
  * the App Store ID, fallback URLs, and the minimum app version required to open the link.
  *
  * @property appStoreID The App Store ID for the app associated with the link.
- * @property fallbackURL The URL to redirect to if the app is not installed on the iOS device.
- * By default the user will be taken to your iOS app store listing
- * @property iPadFallbackURL The URL to be used as a fallback on iPad devices when the app is not installed.
- * By default the user will be taken to your iOS app store listing
+ * @property fallbackURL A web page to open instead of the App Store when the app is not installed.
+ * Users sent there get no deferred deep link. By default (null) the user is taken to your
+ * App Store listing and the app receives the link on first launch.
+ * @property iPadFallbackURL Like [fallbackURL], for iPads.
  * @property minimumAppVersion The minimum version of the iOS app required to open the link.
  */
 public data class IosParameters(
