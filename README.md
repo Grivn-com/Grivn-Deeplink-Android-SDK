@@ -160,6 +160,11 @@ entirely, and so does `DynamicLinksSDK.setAnalyticsEnabled(false)`.
 
 Create a short dynamic link from components:
 
+> **Fallback URLs**: leave `fallbackURL` unset unless you want users without
+> the app to see a web page. Unset, they go to Google Play (or the App Store on
+> iOS) and the app gets this link on first launch (deferred deep link). Users
+> sent to a web page get no deferred deep link.
+
 ```kotlin
 import com.osdl.dynamiclinks.*
 
@@ -173,12 +178,10 @@ lifecycleScope.launch {
             domainUriPrefix = "https://YOUR_PROJECT_ID.grivn.com",
             androidParameters = AndroidParameters(
                 packageName = "com.myapp.android",
-                fallbackURL = "https://play.google.com/store/apps/details?id=com.myapp.android",
                 minimumVersion = 10
             ),
             iOSParameters = IosParameters(
-                appStoreID = "123456789",
-                fallbackURL = "https://apps.apple.com/app/id123456789"
+                appStoreID = "123456789"
             ),
             analyticsParameters = AnalyticsParameters(
                 source = "email",
