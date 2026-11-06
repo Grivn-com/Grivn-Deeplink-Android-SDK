@@ -62,7 +62,7 @@ public object DynamicLinksSDK {
     private var trustAllCerts: Boolean = false
 
     /**
-     * Whether analytics data collection is enabled (deferred deeplink & install confirmation).
+     * Whether analytics data collection is enabled (deferred deeplink & event tracking).
      * When disabled, regular deep link handling (App Links) continues to work normally.
      */
     @JvmStatic
@@ -249,7 +249,7 @@ public object DynamicLinksSDK {
 
     /**
      * Enable or disable analytics data collection.
-     * When disabled, `checkDeferredDeeplink` returns not-found and `confirmInstall` is a no-op.
+     * When disabled, `checkDeferredDeeplink` returns not-found without asking the backend.
      * Regular deep link handling (App Links) is not affected.
      *
      * @param enabled true to enable (default), false to disable
@@ -571,7 +571,8 @@ public object DynamicLinksSDK {
                 if (result.found) {
                     SDKLogger.info("Deferred deeplink found (tier=$tier)")
                     trackEvent("deferred_deeplink_match", mapOf("match_tier" to (tier ?: "unknown")))
-                    confirmInstallInternal(context)
+                    // The backend has recorded the install on the click it matched (GRIVN-258).
+                    trackEvent("app_install")
                 } else {
                     SDKLogger.info("No deferred deeplink found")
                 }
@@ -665,47 +666,18 @@ public object DynamicLinksSDK {
     }
     
     /**
-     * Manually confirms an install (normally called automatically from `checkDeferredDeeplink`).
+     * Does nothing. When `checkDeferredDeeplink` finds the link, the backend
+     * records the install on the click it matched, so there is nothing left
+     * to confirm (GRIVN-258).
      *
-     * @param context Android context.
+     * @param context Android context (unused).
      */
+    @Deprecated("Installs are recorded when checkDeferredDeeplink finds the link; this does nothing.")
     @JvmStatic
+    @Suppress("UNUSED_PARAMETER")
     public suspend fun confirmInstall(context: Context) {
-        ensureInitialized()
-        confirmInstallInternal(context)
     }
-    
-    private suspend fun confirmInstallInternal(context: Context) {
-        // Analytics opt-out: skip install confirmation
-        if (!analyticsEnabled) return
 
-        withContext(Dispatchers.IO) {
-            try {
-                val userAgent = DeviceFingerprint.getDefaultUserAgent(context)
-                val deviceModel = Build.MODEL
-                val osVersion = Build.VERSION.RELEASE
-                val appVersion = try {
-                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
-                } catch (e: Exception) {
-                    null
-                }
-
-                SDKLogger.debug("confirmInstall — device=$deviceModel, os=$osVersion, appVersion=$appVersion")
-
-                apiService.confirmInstall(
-                    userAgent = userAgent,
-                    deviceModel = deviceModel,
-                    osVersion = osVersion,
-                    appVersion = appVersion
-                )
-                trackEvent("app_install")
-                SDKLogger.info("Install confirmed")
-            } catch (e: Exception) {
-                SDKLogger.warn("confirmInstall failed (best-effort)", e)
-            }
-        }
-    }
-    
     /**
      * Resets the first-launch state (for testing).
      *

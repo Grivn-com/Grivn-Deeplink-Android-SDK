@@ -185,30 +185,6 @@ internal class ApiService(
     }
 
     /**
-     * Confirms an install.
-     *
-     * Fingerprint matching is performed on the server based on IP + User-Agent.
-     * The SDK does not send a `fingerprint_id`.
-     */
-    fun confirmInstall(
-        userAgent: String,
-        deviceModel: String? = null,
-        osVersion: String? = null,
-        appVersion: String? = null
-    ): ApiResponse<ConfirmInstallResponse> {
-        val url = "$baseUrl/api/v1/analytics/confirm-install"
-
-        val body = ConfirmInstallRequest(
-            userAgent = userAgent,
-            deviceModel = deviceModel,
-            osVersion = osVersion,
-            appVersion = appVersion
-        )
-
-        return post(url, body)
-    }
-    
-    /**
      * Masks the API key: keeps the first 4 and last 3 characters, replaces the middle with ***.
      */
     private fun maskApiKey(key: String): String {
@@ -369,27 +345,6 @@ internal data class DeferredDeeplinkResponse(
 internal data class InstallReferrerApiRequest(
     @SerializedName("referrer_string") val referrerString: String,
     @SerializedName("user_agent") val userAgent: String
-)
-
-/**
- * Request payload for confirming an install.
- *
- * Note: `fingerprint_id` is generated on the server based on IP + User-Agent;
- * the SDK does not need to send it.
- */
-internal data class ConfirmInstallRequest(
-    @SerializedName("user_agent") val userAgent: String,
-    @SerializedName("device_model") val deviceModel: String? = null,
-    @SerializedName("os_version") val osVersion: String? = null,
-    @SerializedName("app_version") val appVersion: String? = null
-)
-
-/**
- * Response payload for confirming an install.
- */
-internal data class ConfirmInstallResponse(
-    @SerializedName("success") val success: Boolean,
-    @SerializedName("message") val message: String?
 )
 
 /**
