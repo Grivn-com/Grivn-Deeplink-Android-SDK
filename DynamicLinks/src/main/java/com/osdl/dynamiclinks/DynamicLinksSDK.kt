@@ -28,13 +28,13 @@ import kotlin.coroutines.resume
  * // Initialize (only handling links)
  * DynamicLinksSDK.init(
  *     baseUrl = "https://api.grivn.com",
- *     secretKey = "your_secret_key"
+ *     secretKey = "grivn_pk_your_key"
  * )
  *
  * // Initialize (also creating links, requires projectId)
  * DynamicLinksSDK.init(
  *     baseUrl = "https://api.grivn.com",
- *     secretKey = "your_secret_key",
+ *     secretKey = "grivn_pk_your_key",
  *     projectId = "your_project_id"
  * )
  *
@@ -93,7 +93,9 @@ public object DynamicLinksSDK {
      * Initializes the SDK (simple version, without automatic deferred deeplink check).
      *
      * @param baseUrl Backend API base URL (e.g. "https://api.grivn.com").
-     * @param secretKey Secret key (sent via the X-API-Key header).
+     * @param secretKey Your publishable key (`grivn_pk_…`), sent as the X-API-Key header.
+     *   It ships inside the app, so never pass a secret key (`grivn_sk_…`); the SDK
+     *   endpoints reject those.
      * @param projectId Optional project ID (used when creating links).
      */
     @JvmStatic
@@ -119,7 +121,7 @@ public object DynamicLinksSDK {
      * DynamicLinksSDK.init(
      *     context = this,
      *     baseUrl = "https://api.grivn.com",
-     *     secretKey = "your_secret_key",
+     *     secretKey = "grivn_pk_your_key",
      *     projectId = "your_project_id"
      * ) { result ->
      *     if (result.found) {
@@ -131,7 +133,7 @@ public object DynamicLinksSDK {
      *
      * @param context Application context (used for automatic deferred deeplink check).
      * @param baseUrl Backend API base URL.
-     * @param secretKey Secret key.
+     * @param secretKey Your publishable key (`grivn_pk_…`), never a secret key.
      * @param projectId Optional project ID.
      * @param onDeferredDeeplink Optional deferred deeplink callback; if null,
      *   the SDK will silently report the install.
