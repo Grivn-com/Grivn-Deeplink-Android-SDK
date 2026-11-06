@@ -142,7 +142,8 @@ internal class ApiService(
         userAgent: String,
         screenResolution: String? = null,
         timezone: String? = null,
-        language: String? = null
+        language: String? = null,
+        installReferrerUnavailable: Boolean
     ): ApiResponse<DeferredDeeplinkResponse> {
         val url = "$baseUrl/api/v1/analytics/deferred"
 
@@ -150,27 +151,25 @@ internal class ApiService(
             userAgent = userAgent,
             screenResolution = screenResolution,
             timezone = timezone,
-            language = language
+            language = language,
+            installReferrerUnavailable = installReferrerUnavailable
         )
 
         return post(url, body)
     }
 
     /**
-     * Retrieves a deferred deeplink via the Install Referrer API.
-     *
-     * Accuracy is >95%, so this is preferred over fingerprint matching.
+     * Retrieves the deferred deeplink of the click Play's install referrer
+     * names: exactly the click that led to this install, on any network.
      */
     fun getDeferredByReferrer(
-        referrerString: String? = null,
-        deeplinkId: String? = null,
+        referrerString: String,
         userAgent: String
     ): ApiResponse<DeferredDeeplinkResponse> {
         val url = "$baseUrl/api/v1/analytics/install-referrer"
 
         val body = InstallReferrerApiRequest(
             referrerString = referrerString,
-            deeplinkId = deeplinkId,
             userAgent = userAgent
         )
 
@@ -351,7 +350,8 @@ internal data class DeferredDeeplinkRequest(
     @SerializedName("user_agent") val userAgent: String,
     @SerializedName("screen_resolution") val screenResolution: String? = null,
     @SerializedName("timezone") val timezone: String? = null,
-    @SerializedName("language") val language: String? = null
+    @SerializedName("language") val language: String? = null,
+    @SerializedName("install_referrer_unavailable") val installReferrerUnavailable: Boolean
 )
 
 /**
@@ -367,8 +367,7 @@ internal data class DeferredDeeplinkResponse(
  * Request payload for the Install Referrer API.
  */
 internal data class InstallReferrerApiRequest(
-    @SerializedName("referrer_string") val referrerString: String? = null,
-    @SerializedName("deeplink_id") val deeplinkId: String? = null,
+    @SerializedName("referrer_string") val referrerString: String,
     @SerializedName("user_agent") val userAgent: String
 )
 

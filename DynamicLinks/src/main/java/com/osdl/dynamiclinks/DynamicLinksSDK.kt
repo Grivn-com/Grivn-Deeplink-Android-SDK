@@ -557,105 +557,63 @@ public object DynamicLinksSDK {
 
                 val userAgent = DeviceFingerprint.getDefaultUserAgent(context)
 
-                // Priority 1: try the Install Referrer API (>95% accuracy).
-                SDKLogger.debug("Trying Install Referrer API first...")
-                val referrerResult = tryInstallReferrer(context, userAgent)
-                if (referrerResult != null && referrerResult.found) {
-                    SDKLogger.info("Deferred deeplink found via Install Referrer")
-                    trackEvent("deferred_deeplink_match", mapOf("match_tier" to "referrer"))
+                // An app Play installed is matched by its install referrer
+                // alone; matching on the network is only for an install with
+                // no referrer to go by (GRIVN-257, see DeferredLookup).
+                val byPlay = DeviceFingerprint.installedByPlay(context)
+                val lookup = DeferredLookup.of(byPlay, if (byPlay) readInstallReferrer(context) else null)
+                SDKLogger.debug("Deferred lookup: ${lookup::class.simpleName}")
+                val (result, tier) = when (lookup) {
+                    is DeferredLookup.ByReferrer -> askByReferrer(lookup.referrer, userAgent)
+                    DeferredLookup.NotFromALink -> NOT_FOUND to null
+                    DeferredLookup.ByFingerprint -> askByFingerprint(context, userAgent)
+                }
+                if (result.found) {
+                    SDKLogger.info("Deferred deeplink found (tier=$tier)")
+                    trackEvent("deferred_deeplink_match", mapOf("match_tier" to (tier ?: "unknown")))
                     confirmInstallInternal(context)
-                    return@withContext referrerResult
+                } else {
+                    SDKLogger.info("No deferred deeplink found")
                 }
-
-                // Priority 2: fall back to fingerprint matching (50-70% accuracy).
-                val metrics = context.resources.displayMetrics
-                val screenResolution = "${metrics.widthPixels}x${metrics.heightPixels}"
-                val timezone = TimeZone.getDefault().id
-                val language = Locale.getDefault().language
-
-                SDKLogger.debug("Falling back to fingerprint matching — screen=$screenResolution, tz=$timezone, lang=$language")
-
-                val response = apiService.getDeferredDeeplink(
-                    userAgent = userAgent,
-                    screenResolution = screenResolution,
-                    timezone = timezone,
-                    language = language
-                )
-
-                when {
-                    response.isSuccess -> {
-                        val data = response.getOrNull()!!
-                        if (data.found) {
-                            SDKLogger.info("Deferred deeplink found via fingerprint (tier=${data.matchTier})")
-                            trackEvent("deferred_deeplink_match", mapOf("match_tier" to (data.matchTier ?: "unknown")))
-                            confirmInstallInternal(context)
-                        } else {
-                            SDKLogger.info("No deferred deeplink found")
-                        }
-                        DeferredDeeplinkData(
-                            found = data.found,
-                            linkData = data.linkData
-                        )
-                    }
-                    else -> {
-                        SDKLogger.warn("Deferred deeplink request failed", response.exceptionOrNull())
-                        DeferredDeeplinkData(found = false, linkData = null)
-                    }
-                }
+                result
             } catch (e: Exception) {
                 SDKLogger.error("checkDeferredDeeplink exception", e)
-                DeferredDeeplinkData(found = false, linkData = null)
+                NOT_FOUND
             }
         }
     }
 
+    private val NOT_FOUND = DeferredDeeplinkData(found = false, linkData = null)
+
+    /** Asks for the link of the click Play's install referrer names, and the match tier. */
+    private fun askByReferrer(referrer: String, userAgent: String): Pair<DeferredDeeplinkData, String?> {
+        val response = apiService.getDeferredByReferrer(referrerString = referrer, userAgent = userAgent)
+        val data = response.getOrNull() ?: run {
+            SDKLogger.warn("Install Referrer request failed", response.exceptionOrNull())
+            return NOT_FOUND to null
+        }
+        return DeferredDeeplinkData(found = data.found, linkData = data.linkData) to "referrer"
+    }
+
     /**
-     * Tries to obtain a deferred deeplink via the Install Referrer API.
-     *
-     * Returns null if Install Referrer is not available or does not contain
-     * a `deeplink_id`.
+     * Asks for a link clicked on this device's network, and the match tier.
+     * Only for an install with no referrer to go by (DeferredLookup.ByFingerprint),
+     * and the request says so: the backend matches an Android install only then.
      */
-    private suspend fun tryInstallReferrer(context: Context, userAgent: String): DeferredDeeplinkData? {
-        val referrerString = readInstallReferrer(context)
-        if (referrerString == null) {
-            SDKLogger.debug("Install Referrer not available")
-            return null
-        }
-
-        SDKLogger.debug("Install Referrer string: $referrerString")
-
-        // Parse deeplink_id from referrer string (format: "deeplink_id=xxx&utm_source=grivn")
-        val params = referrerString.split("&").associate { param ->
-            val parts = param.split("=", limit = 2)
-            if (parts.size == 2) parts[0] to parts[1] else parts[0] to ""
-        }
-        val deeplinkId = params["deeplink_id"]
-        if (deeplinkId.isNullOrBlank()) {
-            SDKLogger.debug("No deeplink_id in referrer, skipping")
-            return null
-        }
-
-        SDKLogger.debug("Querying deferred deeplink by referrer — deeplinkId=$deeplinkId")
-
-        val response = apiService.getDeferredByReferrer(
-            referrerString = referrerString,
-            deeplinkId = deeplinkId,
-            userAgent = userAgent
+    private fun askByFingerprint(context: Context, userAgent: String): Pair<DeferredDeeplinkData, String?> {
+        val metrics = context.resources.displayMetrics
+        val response = apiService.getDeferredDeeplink(
+            userAgent = userAgent,
+            screenResolution = "${metrics.widthPixels}x${metrics.heightPixels}",
+            timezone = TimeZone.getDefault().id,
+            language = Locale.getDefault().language,
+            installReferrerUnavailable = true
         )
-
-        return when {
-            response.isSuccess -> {
-                val data = response.getOrNull()!!
-                DeferredDeeplinkData(
-                    found = data.found,
-                    linkData = data.linkData
-                )
-            }
-            else -> {
-                SDKLogger.warn("Install Referrer API request failed", response.exceptionOrNull())
-                null
-            }
+        val data = response.getOrNull() ?: run {
+            SDKLogger.warn("Deferred deeplink request failed", response.exceptionOrNull())
+            return NOT_FOUND to null
         }
+        return DeferredDeeplinkData(found = data.found, linkData = data.linkData) to data.matchTier
     }
 
     /**
