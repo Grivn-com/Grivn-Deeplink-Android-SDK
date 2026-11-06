@@ -19,7 +19,7 @@ dependencyResolutionManagement {
 ```kotlin
 // module build.gradle.kts
 dependencies {
-    implementation("com.github.Grivn-com:Grivn-Deeplink-Android-SDK:1.3.0")
+    implementation("com.github.Grivn-com:Grivn-Deeplink-Android-SDK:1.4.0")
 }
 ```
 
