@@ -595,14 +595,19 @@ public object DynamicLinksSDK {
         return DeferredDeeplinkData(found = data.found, linkData = data.linkData) to "referrer"
     }
 
-    /** Asks for a link clicked on this device's network, and the match tier. */
+    /**
+     * Asks for a link clicked on this device's network, and the match tier.
+     * Only for an install with no referrer to go by (DeferredLookup.ByFingerprint),
+     * and the request says so: the backend matches an Android install only then.
+     */
     private fun askByFingerprint(context: Context, userAgent: String): Pair<DeferredDeeplinkData, String?> {
         val metrics = context.resources.displayMetrics
         val response = apiService.getDeferredDeeplink(
             userAgent = userAgent,
             screenResolution = "${metrics.widthPixels}x${metrics.heightPixels}",
             timezone = TimeZone.getDefault().id,
-            language = Locale.getDefault().language
+            language = Locale.getDefault().language,
+            installReferrerUnavailable = true
         )
         val data = response.getOrNull() ?: run {
             SDKLogger.warn("Deferred deeplink request failed", response.exceptionOrNull())

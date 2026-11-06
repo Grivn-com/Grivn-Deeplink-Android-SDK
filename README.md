@@ -125,8 +125,9 @@ that link on the first launch after install. When Google Play installed the
 app, the SDK reads the Play Install Referrer, which names the exact tap that
 led to the install, on any network; an install from Play that no tap led to
 gets `found == false`. Only a build installed another way (Android Studio,
-`adb install`, another store) is matched on network and device signals, so
-when testing that way, tap the link on the device's own network first. Pass
+`adb install`, another store), or an install whose Play referrer couldn't be
+read, is matched on network and device signals, so when testing that way,
+tap the link on the device's own network first. Pass
 `onDeferredDeeplink` to `init`: the SDK checks once, on first
 launch, and calls you back **on a background thread**, so switch to the main
 thread before touching UI.

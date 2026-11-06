@@ -142,7 +142,8 @@ internal class ApiService(
         userAgent: String,
         screenResolution: String? = null,
         timezone: String? = null,
-        language: String? = null
+        language: String? = null,
+        installReferrerUnavailable: Boolean
     ): ApiResponse<DeferredDeeplinkResponse> {
         val url = "$baseUrl/api/v1/analytics/deferred"
 
@@ -151,9 +152,7 @@ internal class ApiService(
             screenResolution = screenResolution,
             timezone = timezone,
             language = language,
-            // The SDK asks by fingerprint only for an install with no referrer
-            // to go by; the backend matches an Android install only then (GRIVN-257).
-            installReferrerUnavailable = true
+            installReferrerUnavailable = installReferrerUnavailable
         )
 
         return post(url, body)
