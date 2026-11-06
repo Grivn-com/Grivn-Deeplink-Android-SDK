@@ -47,7 +47,7 @@ class MyApplication : Application() {
         DynamicLinksSDK.init(
             context = this,                        // REQUIRED to enable analytics
             baseUrl = "https://api.grivn.com",    // Backend API URL
-            secretKey = "your_secret_key",         // X-API-Key for authentication
+            secretKey = "grivn_pk_your_key",       // Publishable key (see below)
             projectId = "your_project_id"          // Project ID for creating links
         )
         
@@ -60,6 +60,8 @@ class MyApplication : Application() {
     }
 }
 ```
+
+**Which key:** pass a **publishable** key (starts with `grivn_pk_`; Grivn dashboard → Settings → API Keys → Publishable). It ships inside your APK, so treat it as public: it can only resolve and create links and report installs and events. Never put a **secret** key (`grivn_sk_`) in an app: anyone can extract it, and the SDK endpoints reject it. The parameter is still named `secretKey` for compatibility.
 
 ### 2. Handle Dynamic Links
 
@@ -129,7 +131,7 @@ thread before touching UI.
 DynamicLinksSDK.init(
     context = this,
     baseUrl = "https://api.grivn.com",
-    secretKey = "your_secret_key",
+    secretKey = "grivn_pk_your_key",
     projectId = "your_project_id",
     onDeferredDeeplink = { result ->
         if (result.found) {
@@ -290,7 +292,7 @@ DynamicLinksSDK
     .setTrustAllCerts(true)  // ⚠️ Only for development!
     .init(
         baseUrl = "https://localhost:8080",
-        secretKey = "dev_secret_key",
+        secretKey = "grivn_pk_your_dev_key",
         projectId = "test_project"
     )
 ```
