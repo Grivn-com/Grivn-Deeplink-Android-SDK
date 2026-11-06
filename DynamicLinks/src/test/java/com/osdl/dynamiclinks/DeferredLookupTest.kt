@@ -1,6 +1,9 @@
 package com.osdl.dynamiclinks
 
+import com.google.gson.Gson
+import com.osdl.dynamiclinks.network.DeferredDeeplinkRequest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -41,5 +44,12 @@ class DeferredLookupTest {
         assertEquals(DeferredLookup.ByFingerprint, DeferredLookup.of(false, null))
         assertEquals(DeferredLookup.ByFingerprint, DeferredLookup.of(false, "utm_source=google-play&utm_medium=organic"))
         assertEquals(DeferredLookup.ByFingerprint, DeferredLookup.of(false, grivn))
+    }
+
+    @Test
+    fun fingerprintRequest_saysTheInstallHasNoReferrer() {
+        // the backend matches an Android install by fingerprint only with this flag
+        val json = Gson().toJson(DeferredDeeplinkRequest(userAgent = "ua", installReferrerUnavailable = true))
+        assertTrue(json, json.contains("\"install_referrer_unavailable\":true"))
     }
 }
